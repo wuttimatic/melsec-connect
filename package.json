@@ -1,10 +1,14 @@
 {
   "name": "melsec-connect",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A modern Node.js library for communicating with Mitsubishi MELSEC PLCs using MC Protocol",
   "main": "src/index.js",
   "scripts": {
-    "test": "node examples/basic-usage.js"
+    "test": "echo \"No tests specified\" && exit 0",
+    "test:plc": "node examples/basic-usage.js",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "prepublishOnly": "echo \"Preparing for publish...\""
   },
   "keywords": [
     "melsec",
@@ -16,10 +20,14 @@
     "communication",
     "ethernet"
   ],
-  "author": "",
+  "author": "Sarawoot S. <sarawoot_s@outlook.com>",
   "license": "MIT",
   "dependencies": {
     "events": "^3.3.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0"
   },
   "repository": {
     "type": "git",
@@ -31,5 +39,10 @@
   "homepage": "https://github.com/wuttimatic/melsec-connect#readme",
   "engines": {
     "node": ">=12.0.0"
-  }
+  },
+  "files": [
+    "README.md",
+    "src/**/*",
+    "examples/**/*"
+  ]
 }

@@ -2,7 +2,7 @@ const { PLCClient } = require('../src');
 
 // PLC Configuration
 const config = {
-    host: '10.30.53.217',
+    host: '192.168.8.106',
     port: 1281,
     protocol: 'TCP',
     ascii: false,
