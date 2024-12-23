@@ -10,6 +10,8 @@ A modern Node.js library for communicating with Mitsubishi MELSEC PLCs using MC 
 - 🔌 Support for multiple simultaneous connections
 - 📊 Detailed operation results with timestamps and quality indicators
 - 🔧 Configurable timeouts and retry mechanisms
+- 📚 Support for array reading and writing
+- 💬 String reading and writing support
 
 ## Installation
 
@@ -68,8 +70,42 @@ const plc = new PLCClient(config);
 
 - `read(tags)`: Read values from PLC
 - `write(tags)`: Write values to PLC
+- `writeString(address, text)`: Write string values to consecutive addresses
 - `connect()`: Explicitly connect to PLC
 - `disconnect()`: Close the connection
+
+### Reading Arrays
+
+You can read multiple consecutive addresses by specifying a `count` in your read tag:
+
+```javascript
+// Read 5 consecutive values starting from D100
+const result = await plc.read([{ name: "D100", count: 5 }]);
+console.log(result.D100.values); // Array of 5 values
+```
+
+### Writing Arrays
+
+You can write arrays by passing an array of values:
+
+```javascript
+// Write values to 3 consecutive addresses starting from D100
+const result = await plc.write([{
+    name: "D100",
+    value: [100, 200, 300]
+}]);
+```
+
+### String Operations
+
+Write text to consecutive PLC addresses:
+
+```javascript
+// Write string to consecutive addresses starting from D100
+await plc.writeString("D100", "Hello PLC!");
+```
+
+Each character takes up one byte, and values are packed into words (2 bytes per word).
 
 ### Configuration Options
 
