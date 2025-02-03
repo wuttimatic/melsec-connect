@@ -247,9 +247,6 @@ MCProtocol.prototype.initiateConnection = function (cParam, callback) {
 		}, ms);
 	}
 
-	self.startQueueTimer(self.queuePollTime);
-
-
 	self.processQueueASAP = function () {
 		setImmediate(() => {
 			outputLog(`🛢️ setImmediate Calling _processQueue() --> `, "TRACE");
@@ -368,8 +365,6 @@ MCProtocol.prototype.connectNow = function (cParam, suppressCallback) { // TODO 
 
 
 
-		
-
 		// self.netClient.on('listening', function () {
 		// 	self.onUDPConnect.apply(self, arguments);
 		// });
@@ -451,8 +446,18 @@ MCProtocol.prototype.connectError = function (e) {
 
 MCProtocol.prototype.readWriteError = function (e) {
 	var self = this;
-	outputLog('We Caught a read/write error ' + e.code + ' - resetting connection', "ERROR", self.connectionID);
-	self.emit('error', e);
+	if (!e) {
+		e = new Error("Unknown read/write error occurred");
+	}
+	
+	// Add more context to the error
+	if (e.code) {
+		e.message = `Connection error (${e.code}): ${e.message}`;
+	}
+	
+	outputLog(e.message, 0, self.connectionID);
+	if (self.readDoneCallback) { self.readDoneCallback(e); }
+	if (self.writeDoneCallback) { self.writeDoneCallback(e); }
 	self.connectionState = 0;
 	self.connectionReset();
 }
@@ -949,7 +954,7 @@ MCProtocol.prototype.prepareWritePacket = function (itemList) {
 	outputLog("####################  prepareWritePacket() ####################", "TRACE");
 
 	var self = this;
-	var requestList = [];			// The request list consists of the block list, split into chunks readable by PDU.  
+	var requestList = [];			// The request list consists of the block list, split into chunks readable by PDU.  	
 	var requestNumber = 0, thisBlock = 0, thisRequest = 0;
 	var itemsThisPacket;
 	var numItems;
@@ -1035,7 +1040,8 @@ MCProtocol.prototype.prepareWritePacket = function (itemList) {
 
 			remainingLength -= maxByteRequest;
 			if (block.bitNative) {
-				startElement += maxByteRequest * 2;
+				//				startElement += maxByteRequest/thisReqItem.multidtypelen;  
+				startElement += maxByteRequest * 8;
 			} else {
 				startElement += maxByteRequest / 2;
 			}
@@ -1053,6 +1059,7 @@ MCProtocol.prototype.prepareWritePacket = function (itemList) {
 		self.writePacketArray.push(new PLCPacket());
 		var thisPacketNumber = self.writePacketArray.length - 1;
 		self.writePacketArray[thisPacketNumber].itemList = [];  // Initialize as array.  
+
 		for (var i = requestNumber; i < requestList.length; i++) {
 			if (numItems == 1) {
 				break;  // Used to break when packet was full.  Now break when we can't fit this packet in here.  
@@ -1093,6 +1100,9 @@ MCProtocol.prototype.prepareReadPacket = function (items) {
 	if (itemList.length == 0) {
 		return undefined;
 	}
+
+	self.globalReadBlockList = [];
+	itemList[0].block = thisBlock;
 
 	/* DISABLED for now as I need to match the items[x] with the cacheitem[x] and update cacheitem[x].cb to new items[x].cb callback
 
@@ -1676,13 +1686,17 @@ MCProtocol.prototype.writeResponse = function (data, decodedHeader) {
 			result.dataTypeByteLength = theItem.dtypelen;
 			result.deviceNo = theItem.offset;
 			result.bitOffset = theItem.bitOffset;
-			results[theItem.useraddr] = result;
 
 			if (typeof (theItem.cb) === 'function') {
 				outputLog("Now calling back item.cb().", "DEBUG", self.connectionID);
 				outputLog(util.format(result), "DEBUG");
 				theItem.cb(!result.isGood, result)
 			}
+			if (theItem.action == "read") {
+				self.removeItems(theItem.useraddr);
+			}
+			results[theItem.useraddr] = result;
+
 		}
 		self.emit('message',anyBadQualities, results);
 		if (typeof (self.writeDoneCallback) === 'function') {
@@ -1952,208 +1966,6 @@ function processMBPacket(decodedHeader, theData, theItem, thePointer, frame) {
 			theItem.lastError = "Response Header is not valid";
 		outputLog(theItem.lastError, "WARN");  // Can't log more info here as we dont have "self" info
 		return 0;   			// Hard to increment the pointer so we call it a malformed packet and we're done.      
-	}
-
-	// There is no reported data length to check here - 
-	// reportedDataLength = theData[9];
-	if (theItem.bitNative && theItem.writeOperation)
-		expectedLength = Math.ceil(theItem.arrayLength / 2);//2 bits are return per byte (pg91)
-	else
-		expectedLength = theItem.byteLength;
-
-	if (decodedHeader.dataLength !== expectedLength) {
-		decodedHeader.valid = false;
-		theItem.valid = false;
-		theItem.lastError = 'Invalid "Response Data Length" - Expected ' + expectedLength + ' but got ' + (decodedHeader.dataLength) + ' bytes.';
-		decodedHeader.lastError = theItem.lastError;
-		outputLog(theItem.lastError, "ERROR");
-		return 1;
-	}
-
-	// Looks good so far.  
-	// set the data pointer to start of data.
-	thePointer = decodedHeader.dataStart;
-
-	var arrayIndex = 0;
-
-	theItem.valid = true;
-	theItem.byteBuffer = theData.slice(thePointer); // This means take to end.
-
-	outputLog('Byte Buffer is:', "TRACE");
-	outputLog(theItem.byteBuffer, "TRACE");
-
-	outputLog('Marking quality as good.', "TRACE");
-	theItem.qualityBuffer.fill(MCProtocol.prototype.enumOPCQuality.good.value);  //  
-
-	return -1; //thePointer;
-}
-
-
-
-
-/**
- * Decodes a reply from PLC. NOTE: Different properties will be set depeding on the frame used.  e.g. `.seq` is only valid for 4E frames.
- *
- * @param {*} mcp - this MCProtocol object (required for access to frame)
- * @param {*} theData - the data as it comes direct from the PLC 
- * @returns an object containing the decoded header.  check `.valid` before using values
- */
-function decodeResponseHeader(mcp, theData){
-
-	//18.1 1E Message Format pg 389
-	// Subheader, End code, Response data
-	// Subheader is 1 byte. Value should be between Original Req Subheader + 0x80
-	// End Code is 1 byte. Value should be 0 for normal
-	// Response Data.  Non for write op, Data for Read op, Abnormal Code if End Code != 0
-
-	//5.2 3E,4E Message Format pg 41 
-	// Subheader, Access route, Response data length, End code, Response data
-
-	// Subheader
-	//  4E 6byes 0x0054 + serial number + 0x0000 (6b) 1234H (5400 = 4E frame, 3412=1234h, 0000 fixed) 
-	//  3E 2bytes 5000  
-	// Access route
-	// 5bytes
-	//* (Byte) Network No ,  Specify the network No. of an access target.
-	//* (Byte) PC No. (byte) Specify the network module station No. of an access target
-	//* (UINT16 LE) Request destination module I/O No 
-	//* (Byte) Request destination module station No. 
-	// Response data length
-	// 2bytes
-	// End code
-	// 2bytes
-	// Response data - Non for write op, Data for Read op, Error Information if End Code != 0
-
-
-	//TODO: put these into an enum of frame eg. ("1E":{minResponseLength:2, other:xxx})
-	let frame = mcp.frame;
-	var minLength = 0;
-	switch (frame) {
-		case '1E':
-			minLength = 2;
-			break;
-		case '3E':
-			minLength = 11;
-			break;
-		case '4E':
-			minLength = 15;
-			break;
-		default:
-			break;
-	}
-
-	var reply = {
-		expectedResponse: undefined,
-		response: undefined,
-		endCode: undefined,
-		accessRouteNetworkNo: undefined,
-		accessPCNo: undefined,
-		accessRouteModuleIONo: undefined,
-		accessRouteModuleStationNo: undefined,
-		seq: undefined,
-		length: undefined,
-		dataLength: undefined, //length: Noof bytes in "Response data"  deduct 2 from length (to remove endCode)
-		dataStart: undefined,
-		lastError: "",
-		valid: false
-	};
-
-	try {
-		if (theData.length < minLength) {
-			if (typeof (theData) !== "undefined") {
-				throw new Error(`Malformed MC Packet - Expected at least '${minLength}' Bytes, however, only received '${theData.length}' Bytes(s)`)
-			} else {
-				throw new Error("Timeout error - zero length packet");
-			}
-		}
-		
-		if (frame == '1E') {
-			reply.expectedResponse = theData[0];//set the expected to same as received. As this is a 1E frame, we dont know expected response at this time.  This will be checked later.
-			//0x80=128 PG401 Batch read in bit units (command: 00) OK response
-			//0x81=129 PG403 Batch read in word units (command: 01) OK response
-			//0x82=130 PG405 Batch write in bit units (command: 02) OK response
-			//0x83=131 PG407 Batch write in word units (command: 03) OK response
-			reply.response = theData[0];
-			reply.endCode = theData[1];
-			reply.dataLength = theData.length -2; //length: Noof bytes in "Response data"  deduct 2 for length of errcode
-			reply.dataStart = 2;
-		}
-
-		if (frame == '3E') {
-			reply.expectedResponse = 0x00D0;
-			reply.response = theData.readUInt16LE(0);
-			reply.accessRouteNetworkNo = theData[2];
-			reply.accessPCNo = theData[3];
-			reply.accessRouteModuleIONo = theData.readUInt16LE(4);
-			reply.accessRouteModuleStationNo = theData[6];
-			reply.length = theData.readUInt16LE(7); //length Noof bytes from start of "end code" ~ end of "Response data"
-			reply.endCode = theData.readUInt16LE(9);
-			//rExtraInfo = theData.readUInt16LE(11);
-			reply.dataLength = reply.length -2; //length: Noof bytes in "Response data"  deduct 2 for length of errcode
-			reply.dataStart = 11;
-		}
-
-		if (frame == '4E') {
-			reply.expectedResponse = 0x00D4;
-			reply.response = theData.readUInt16LE(0); 
-			reply.seqNum = theData.readUInt16LE(2); 
-			let xxx = theData.readUInt16LE(4); //dummy
-			reply.accessRouteNetworkNo = theData[6];
-			reply.accessPCNo = theData[7];
-			reply.accessRouteModuleIONo = theData.readUInt16LE(8); 
-			reply.accessRouteModuleStationNo = theData[10];
-			reply.length = theData.readUInt16LE(11);//length Noof bytes from start of "end code" ~ end of "Response data"
-			reply.endCode = theData.readUInt16LE(13);
-			//rExtraInfo = theData.readUInt16LE(15);
-			reply.dataLength = reply.length -2; //length: Noof bytes in "Response data"  deduct 2 for length of errcode
-			reply.dataStart = 15;
-
-		}
-		if (reply.response !== reply.expectedResponse) {
-			reply.lastError = 'Invalid MC - Expected first part to be ' + decimalToHexString(reply.expectedResponse) + ' - got ' + decimalToHexString(reply.response) + " (" + reply.response + ")";
-			return reply; 
-		}
-	
-		if (reply.endCode !== 0) {
-			reply.endDetail = theData.slice(reply.dataStart);//all response data is error info when endcode is not 0
-			reply.lastError = `Reply End code '${reply.endCode} is not zero. For extra info, see "endDetail" `;
-			return reply; 
-		}
-	} catch (error) {
-		reply.lastError = `Exception - ${error}`;
-		return reply; 
-	}
-	reply.valid = true;
-	return reply;
-}
-
-
-function processMBWriteItem(decodedHeader, theItem, thePointer, frame) {
-	// Create a new buffer for the quality.  
-	// theItem.writeQualityBuffer = new Buffer(theItem.byteLength);
-	theItem.writeQualityBuffer.fill(MCProtocol.prototype.enumOPCQuality.unknown.value);
-	//reset some flags...#
-	theItem.endCode = null;
-	theItem.endDetail = null;
-	theItem.lastError = null;
-	if(!decodedHeader){
-		theItem.valid = false;
-		theItem.endCode = -1; //TODO: Determine a suitable endCode (or none!)
-		theItem.lastError = "Response Header is not valid / empty (should not happen)";
-		theItem.writeQualityBuffer.fill(MCProtocol.prototype.enumOPCQuality.bad.value);
-		outputLog(theItem.lastError, "WARN");   
-		return 0;   			      
-	}
-
-	if(!decodedHeader.valid){
-		theItem.valid = false;
-		theItem.lastError = decodedHeader.lastError || "Response Header is not valid";
-		theItem.endCode = decodedHeader.endCode; 
-		theItem.endDetail = decodedHeader.endDetail;
-		//TODO: Fill quality with more specific / appropriate value (based on endCode)
-		theItem.writeQualityBuffer.fill(MCProtocol.prototype.enumOPCQuality.bad.value);
-		outputLog(theItem.lastError, "WARN");  
-		return 0;   			      
 	}
 
 	//success
@@ -3211,6 +3023,12 @@ function PLCItem(owner) { // Object
 					theItem.bitOffset = postDotNumeric;
 					theItem.remainder = theItem.bitOffset % 16;//bug fix.  If D1000.1,16 is requested, we need to get 2 WDs as the addr range is D1000.1 ~ D1001.1
 				}
+				if (theItem.deviceCode === "CN" && theItem.requestOffset < 200 && (theItem.requestOffset + theItem.arrayLength > 200)) {
+					theItem.initError = "You can't have a counter array that crosses the 200-point boundary.";
+					//outputLog(theItem.initError);
+					return false;
+				}
+
 				if (theItem.deviceCode === "CN" && theItem.offset >= 200) {
 					theItem.dtypelen = 4;
 					theItem.multidtypelen = 4;
@@ -3402,7 +3220,7 @@ function PLCItem(owner) { // Object
 				// set to bit length
 				MCCommand.writeUInt8(self.arrayLength, 10);  // fails when asking for >256 items because we call toBuffer() before breaking into "parts"
 			} else if (self.bitNative && !writeOperation) {
-				MCCommand.writeUInt8(Math.ceil((self.arrayLength + self.remainder) / 16), 10);
+				MCCommand.writeUInt8(Math.ceil((self.arrayLength + self.remainder) / 16));
 			} else {
 				// doesn't work with optimized blocks where array length isn't right		MCCommand.writeUInt8(self.arrayLength*self.dataTypeByteLength()/2, 10);
 				if (writeOperation) {
@@ -3466,12 +3284,10 @@ function PLCItem(owner) { // Object
 		
 				3E Q/L example
 				0                             1                             2                             3
-				0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9  0
 				50 00 00 ff ff 03 00 0a 00 10 00 01 04 00 00 d2 04 00 A8 37 00
 		
 				4E Q/L example
 				0                             1                             2                             3
-				0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9  0
 				54 00 02 00 00 00 00 ff ff 03 00 0a 00 10 00 01 04 00 00 d2 04 00 A8 37 00
 				
 				Subheader 4E 0x0054 + serial number + 0x0000 (6b) 1234H (5400 = 4E frame, 0200=2h, 0000 fixed) 
@@ -3545,7 +3361,6 @@ function PLCItem(owner) { // Object
 			* (Byte) PC No. (byte) Specify the network module station No. of an access target
 			* (UINT16 LE) Request destination module I/O No 
 				0000H to 01FFH: Values obtained by dividing the start input/output number by 16
-				0x03FF = CPU
 			* (Byte) Request destination module station No. 
 			*/
 			let networkNo = network ? network : (this.options.N || 0);
@@ -3652,7 +3467,7 @@ function PLCItem(owner) { // Object
 			result.data = MCCommand.slice(0, pos + writeLength);   
 			outputLog(`MCAddrToBuffer generated the below data for ${self.addr} (frame ${frame}, plcType ${plcType})...`, "TRACE");
 			outputLog('        0                             1                             2                 ', "TRACE");
-			outputLog('        0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  ', "TRACE");
+			outputLog('        0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  ', "TRACE");
 			outputLog(result.data, "TRACE");
 			self.buffer = result;
 			self.bufferized = true;

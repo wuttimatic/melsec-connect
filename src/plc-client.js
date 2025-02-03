@@ -111,52 +111,35 @@ class PLCClient {
     }
 
     async write(tags, options = {}) {
-        const results = {};
         const timeout = options.timeout || this.config.timeout;
-
+        
         try {
-            if (!this.connection) {
-                await this.connect();
+            // Always establish a fresh connection for writing
+            if (this.connection) {
+                await this.disconnect();
             }
+            await this.connect();
 
             for (const tag of tags) {
-                if (Array.isArray(tag.value)) {
-                    // Handle array writing
-                    const baseAddr = tag.name.replace(/\d+$/, '');
-                    const startNum = parseInt(tag.name.match(/\d+$/)[0]);
-                    const writeResults = [];
-
-                    for (let i = 0; i < tag.value.length; i++) {
-                        const addr = `${baseAddr}${startNum + i}`;
-                        const result = await this._writeTag({
-                            name: addr,
-                            value: tag.value[i]
-                        }, timeout);
-                        
-                        if (result.error) {
-                            throw new Error(`Error writing array element ${i} to ${addr}: ${result.error}`);
-                        }
-                        writeResults.push(result);
-                    }
-
-                    results[tag.name] = {
-                        name: tag.name,
-                        values: tag.value,
-                        count: tag.value.length,
-                        quality: 'Good',
-                        timeStamp: new Date().toISOString(),
-                        results: writeResults
-                    };
-                } else {
-                    results[tag.name] = await this._writeTag(tag, timeout);
-                }
+                await this._writeTag(tag, timeout);
                 // Add small delay between writes to prevent overwhelming the PLC
-                await new Promise(resolve => setTimeout(resolve, 50));
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
 
-            return results;
+            // Always disconnect after writing
+            await this.disconnect();
+            
+            return true;
         } catch (error) {
             console.error('[PLCClient] Write error:', error);
+            // Ensure connection is cleaned up even on error
+            try {
+                if (this.connection) {
+                    await this.disconnect();
+                }
+            } catch (cleanupError) {
+                console.error('[PLCClient] Cleanup error:', cleanupError);
+            }
             throw error;
         }
     }
