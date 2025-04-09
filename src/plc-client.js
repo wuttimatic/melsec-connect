@@ -79,7 +79,11 @@ class PLCClient {
                 await new Promise(resolve => setTimeout(resolve, 50));
             }
 
-            return results;
+            return {
+                success: true,
+                timeTaken: Object.values(results).reduce((total, item) => total + (item.timeTaken || 0), 0),
+                results: results
+            };
         } catch (error) {
             console.error('[PLCClient] Read error:', error);
             throw error;
@@ -227,13 +231,19 @@ class PLCClient {
             }
 
             return {
-                address,
-                text: resultString,
-                wordCount: readResults.length,
-                quality: 'Good',
-                timeStamp: new Date().toISOString(),
+                success: true,
                 timeTaken: totalTimeTaken,
-                results: readResults
+                results: {
+                    [address]: {
+                        address,
+                        text: resultString,
+                        wordCount: readResults.length,
+                        quality: 'Good',
+                        timeStamp: new Date().toISOString(),
+                        timeTaken: totalTimeTaken,
+                        details: readResults
+                    }
+                }
             };
 
         } catch (error) {
@@ -298,13 +308,19 @@ class PLCClient {
             }
 
             return {
-                address,
-                text: paddedText,
-                wordCount,
-                quality: 'Good',
-                timeStamp: new Date().toISOString(),
+                success: true,
                 timeTaken: totalTimeTaken,
-                results: writeResults
+                results: {
+                    [address]: {
+                        address,
+                        text: paddedText,
+                        wordCount,
+                        quality: 'Good',
+                        timeStamp: new Date().toISOString(),
+                        timeTaken: totalTimeTaken,
+                        details: writeResults
+                    }
+                }
             };
 
         } catch (error) {

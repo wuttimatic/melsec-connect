@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Standardized result format across all methods (`read`, `readString`, `write`, `writeString`)
+  - All methods now return a consistent structure: `{ success, timeTaken, results }`
+  - Individual operation details are now organized under the `results` object
+  - String operation results include `details` array with individual word operations
 - Modified `write` method to return a detailed result object instead of a boolean
   - New return format includes success status, timing information, and individual operation results
 
