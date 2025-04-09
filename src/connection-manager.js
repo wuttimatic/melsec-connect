@@ -1,5 +1,5 @@
 const EventEmitter = require('events');
-const mcprotocol = require('../mcprotocol/mcprotocol.js');
+const mcprotocol = require('./mcprotocol/mcprotocol.js');
 
 class ConnectionManager extends EventEmitter {
     constructor() {
@@ -17,7 +17,7 @@ class ConnectionManager extends EventEmitter {
     // Get or create a connection with proper state tracking
     async getConnection(host, port, options = {}) {
         const connectionId = this._getConnectionId(host, port);
-        
+
         // Check if there's a pending connection
         if (this.connectionStates.get(connectionId) === 'connecting') {
             console.log(`[ConnectionManager] Connection ${connectionId} is already being established`);
@@ -56,11 +56,11 @@ class ConnectionManager extends EventEmitter {
     // Create a new connection with proper error handling
     async _createConnection(connectionId, host, port, options) {
         console.log(`[ConnectionManager] Creating new connection ${connectionId}`);
-        
+
         this.connectionStates.set(connectionId, 'connecting');
 
         const mcpInstance = new mcprotocol();
-        
+
         // Configure connection
         const connectionOptions = {
             host,
@@ -126,11 +126,11 @@ class ConnectionManager extends EventEmitter {
     async closeConnection(host, port) {
         const connectionId = this._getConnectionId(host, port);
         const connection = this.connections.get(connectionId);
-        
+
         if (connection) {
             return new Promise((resolve) => {
                 console.log(`[ConnectionManager] Closing connection ${connectionId}`);
-                
+
                 // Set a timeout for connection closure
                 const closeTimeout = setTimeout(() => {
                     this._cleanup(connectionId);
