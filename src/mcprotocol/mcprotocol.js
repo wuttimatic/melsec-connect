@@ -118,11 +118,11 @@ MCProtocol.prototype.setDebugLevel = function (level) {
 		case 'NONE':
 			effectiveDebugLevel = -1;
 			break;
-	
+
 		default:
 			effectiveDebugLevel = level;
 	}
-	
+
 }
 
 MCProtocol.prototype.nextSequenceNumber = function () {
@@ -157,7 +157,7 @@ MCProtocol.prototype.initiateConnection = function (cParam, callback) {
 	} else {
 		self.isAscii = cParam.ascii;
 	}
-	
+
 	if (typeof (cParam.octalInputOutput) === 'undefined') {
 		self.octalInputOutput = false;
 	} else {
@@ -166,24 +166,24 @@ MCProtocol.prototype.initiateConnection = function (cParam, callback) {
 	if (typeof (cParam.plcType) === 'undefined') {
 		self.plcType = MCProtocol.prototype.enumPLCTypes.Q.name;
 		self.enumDeviceCodeSpec = MCProtocol.prototype.enumDeviceCodeSpecQ;//default to Q/L series
-		outputLog(`plcType not provided, defaulting to Q series PLC`,"WARN");
+		outputLog(`plcType not provided, defaulting to Q series PLC`, "WARN");
 	} else {
 		self.plcType = cParam.plcType;
-		if(!MCProtocol.prototype.enumPLCTypes[cParam.plcType]){
+		if (!MCProtocol.prototype.enumPLCTypes[cParam.plcType]) {
 			self.plcType = MCProtocol.prototype.enumPLCTypes.Q.name;
-			outputLog(`plcType '${cParam.plcType}' unknown. Currently supported types are '${MCProtocol.prototype.enumPLCTypes.keys.join("|")}', defaulting to Q series PLC`,"WARN");
-		} 
-		
+			outputLog(`plcType '${cParam.plcType}' unknown. Currently supported types are '${MCProtocol.prototype.enumPLCTypes.keys.join("|")}', defaulting to Q series PLC`, "WARN");
+		}
+
 		self.plcSeries = MCProtocol.prototype.enumPLCTypes[self.plcType];
 		//not sure how best to handle A/QnA series - not even sure A series can do 3E/4E frames!
 		//for now, default to Q (will be overwritten below if user choses 1E frames)
 		self.enumDeviceCodeSpec = MCProtocol.prototype['enumDeviceCodeSpec' + self.plcType] || MCProtocol.prototype.enumDeviceCodeSpecQ;
 
-		outputLog(`'plcType' set is ${self.plcType}`,"INFO");
+		outputLog(`'plcType' set is ${self.plcType}`, "INFO");
 	}
 
 	if (typeof (cParam.frame) === 'undefined') {
-		outputLog(`'frame' not provided, defaulting '3E'.  Valid options are 1E, 3E, 4E.`,"WARN");
+		outputLog(`'frame' not provided, defaulting '3E'.  Valid options are 1E, 3E, 4E.`, "WARN");
 		self.frame = '3E';
 	} else {
 		switch (cParam.frame.toUpperCase()) {
@@ -196,17 +196,17 @@ MCProtocol.prototype.initiateConnection = function (cParam, callback) {
 				break;
 			case '4E':
 				self.frame = '4E';
-			break;
+				break;
 			default:
 				self.frame = '3E';
-				outputLog(`'frame' ${cParam.frame} is unknown. Defaulting to 3E.  Valid options are 1E, 3E, 4E.`,"WARN");
+				outputLog(`'frame' ${cParam.frame} is unknown. Defaulting to 3E.  Valid options are 1E, 3E, 4E.`, "WARN");
 				break;
 		}
 		self.frame = cParam.frame;
-		outputLog(`'frame' set is ${self.frame}`,"DEBUG");
+		outputLog(`'frame' set is ${self.frame}`, "DEBUG");
 	}
 
-	if(!self.enumDeviceCodeSpec){
+	if (!self.enumDeviceCodeSpec) {
 		throw new Error("Error determining device code specification. Check combination of PLC Type and Frame Type are valid");
 	}
 
@@ -246,6 +246,9 @@ MCProtocol.prototype.initiateConnection = function (cParam, callback) {
 			self._processQueue()
 		}, ms);
 	}
+
+	self.startQueueTimer(self.queuePollTime);
+
 
 	self.processQueueASAP = function () {
 		setImmediate(() => {
@@ -313,10 +316,10 @@ MCProtocol.prototype.initiateConnection = function (cParam, callback) {
 MCProtocol.prototype.dropConnection = function () {
 	var self = this;
 	outputLog(`dropConnection() called`, "TRACE", self.connectionID);
-	if(self.connectionParams.protocol == "UDP"){
+	if (self.connectionParams.protocol == "UDP") {
 		//TODO - implement UDP
 		try {
-			if(self.netClient){
+			if (self.netClient) {
 				self.netClient.close();
 			}
 		} catch (error) {
@@ -331,12 +334,12 @@ MCProtocol.prototype.dropConnection = function () {
 			outputLog(`dropConnection() caused an error error: ${error}`, "ERROR", self.connectionID);
 		}
 	}
-	self.connectionCleanup(); 
+	self.connectionCleanup();
 	self.connected = false;
 }
 
 MCProtocol.prototype.close = function () {
-    this.dropConnection();
+	this.dropConnection();
 };
 
 MCProtocol.prototype.connectNow = function (cParam, suppressCallback) { // TODO - implement or remove suppressCallback
@@ -365,6 +368,8 @@ MCProtocol.prototype.connectNow = function (cParam, suppressCallback) { // TODO 
 
 
 
+
+
 		// self.netClient.on('listening', function () {
 		// 	self.onUDPConnect.apply(self, arguments);
 		// });
@@ -372,11 +377,11 @@ MCProtocol.prototype.connectNow = function (cParam, suppressCallback) { // TODO 
 
 		//self.netClient.connect();
 
-		self.netClient.write = function(buffer){
-			self.netClient.send( buffer, 0, buffer.length, cParam.port, cParam.host, function (err) {
+		self.netClient.write = function (buffer) {
+			self.netClient.send(buffer, 0, buffer.length, cParam.port, cParam.host, function (err) {
 				if (err) {
 					self.emit('error');//??
-				} 
+				}
 			});
 		}
 
@@ -395,7 +400,7 @@ MCProtocol.prototype.connectNow = function (cParam, suppressCallback) { // TODO 
 		self.netClient.on('error', function () {
 			self.readWriteError.apply(self, arguments);
 		});  // Might want to remove the connecterror listener
-		
+
 		self.emit('open');
 		if ((!self.connectCBIssued) && (typeof (self.connectCallback) === "function")) {
 			self.connectCBIssued = true;
@@ -429,12 +434,12 @@ MCProtocol.prototype.connectNow = function (cParam, suppressCallback) { // TODO 
 		outputLog('Attempting to connect to host...', "DEBUG", self.connectionID);
 	}
 
-	
+
 }
 
 MCProtocol.prototype.connectError = function (e) {
 	var self = this;
-	self.emit('error',e);
+	self.emit('error', e);
 	// Note that a TCP connection timeout error will appear here.  An MC connection timeout error is a packet timeout.  
 	outputLog('We Caught a connect error ' + e.code, "ERROR", self.connectionID);
 	if ((!self.connectCBIssued) && (typeof (self.connectCallback) === "function")) {
@@ -446,18 +451,8 @@ MCProtocol.prototype.connectError = function (e) {
 
 MCProtocol.prototype.readWriteError = function (e) {
 	var self = this;
-	if (!e) {
-		e = new Error("Unknown read/write error occurred");
-	}
-	
-	// Add more context to the error
-	if (e.code) {
-		e.message = `Connection error (${e.code}): ${e.message}`;
-	}
-	
-	outputLog(e.message, 0, self.connectionID);
-	if (self.readDoneCallback) { self.readDoneCallback(e); }
-	if (self.writeDoneCallback) { self.writeDoneCallback(e); }
+	outputLog('We Caught a read/write error ' + e.code + ' - resetting connection', "ERROR", self.connectionID);
+	self.emit('error', e);
 	self.connectionState = 0;
 	self.connectionReset();
 }
@@ -495,7 +490,7 @@ MCProtocol.prototype.onTCPConnect = function () {
 	self.netClient.on('error', function () {
 		self.readWriteError.apply(self, arguments);
 	});  // Might want to remove the connecterror listener
-	
+
 	self.emit('open');
 	if ((!self.connectCBIssued) && (typeof (self.connectCallback) === "function")) {
 		self.connectCBIssued = true;
@@ -522,7 +517,7 @@ MCProtocol.prototype.onUDPConnect = function () {
 	self.netClient.on('error', function () {
 		self.readWriteError.apply(self, arguments);
 	});  // Might want to remove the connecterror listener
-	
+
 	self.emit('open');
 	if ((!self.connectCBIssued) && (typeof (self.connectCallback) === "function")) {
 		self.connectCBIssued = true;
@@ -587,8 +582,8 @@ function _writeItems(self, arg, value, cb, queuedItem) {
 				plcitem.cb = cb[i];
 			else
 				plcitem.cb = cb;
-			
-			
+
+
 			plcitems.push(plcitem);
 		}
 	}
@@ -923,13 +918,13 @@ MCProtocol.prototype.isWaiting = function () {
 }
 
 MCProtocol.prototype.isReading = function () {
-	return this.readPacketArray.some(function(el){
+	return this.readPacketArray.some(function (el) {
 		return el.sent;
 	});
 }
 
 MCProtocol.prototype.isWriting = function () {
-	return this.writePacketArray.some(function(el){
+	return this.writePacketArray.some(function (el) {
 		return el.sent;
 	});
 }
@@ -954,7 +949,7 @@ MCProtocol.prototype.prepareWritePacket = function (itemList) {
 	outputLog("####################  prepareWritePacket() ####################", "TRACE");
 
 	var self = this;
-	var requestList = [];			// The request list consists of the block list, split into chunks readable by PDU.  	
+	var requestList = [];			// The request list consists of the block list, split into chunks readable by PDU.  
 	var requestNumber = 0, thisBlock = 0, thisRequest = 0;
 	var itemsThisPacket;
 	var numItems;
@@ -974,12 +969,12 @@ MCProtocol.prototype.prepareWritePacket = function (itemList) {
 		if (itemList[i].prepareWriteData()) {
 			itemList[i].writeBuffer._instance = itemList[i]._instance;
 			self.globalWriteBlockList.push(itemList[i]); // Remember - by reference.  
-			var bli = self.globalWriteBlockList[self.globalWriteBlockList.length-1];
+			var bli = self.globalWriteBlockList[self.globalWriteBlockList.length - 1];
 			bli.isOptimized = false;
 			bli.itemReference = [];
 			bli.itemReference.push(itemList[i]);
-		} 
-  }
+		}
+	}
 
 	// Split the blocks into requests, if they're too large.  
 	for (i = 0; i < self.globalWriteBlockList.length; i++) {
@@ -987,7 +982,7 @@ MCProtocol.prototype.prepareWritePacket = function (itemList) {
 		var startElement = block.offset;
 		var remainingLength = block.byteLengthWrite;
 		var remainingTotalArrayLength = block.totalArrayLength;
-		var maxByteRequest = block.maxWordLength() * 2; 
+		var maxByteRequest = block.maxWordLength() * 2;
 		var lengthOffset = 0;
 		block.partsBufferized = 0;
 
@@ -1000,10 +995,10 @@ MCProtocol.prototype.prepareWritePacket = function (itemList) {
 		// If we need to spread the sending/receiving over multiple packets...
 		for (j = 0; j < block.parts; j++) {
 			// create a request for a globalWriteBlockList. 
-			requestList[thisRequest] = block.clone(); 
+			requestList[thisRequest] = block.clone();
 			let reqItem = requestList[thisRequest];
 			reqItem._instance = "block clone (request item)";
-			reqItem.part = j+1;
+			reqItem.part = j + 1;
 			//reqItem.updateSeqNum(self.nextSequenceNumber());
 			reqItem.offset = startElement;
 			reqItem.byteLengthWrite = Math.min(maxByteRequest, remainingLength);
@@ -1040,8 +1035,7 @@ MCProtocol.prototype.prepareWritePacket = function (itemList) {
 
 			remainingLength -= maxByteRequest;
 			if (block.bitNative) {
-				//				startElement += maxByteRequest/thisReqItem.multidtypelen;  
-				startElement += maxByteRequest * 8;
+				startElement += maxByteRequest * 2;
 			} else {
 				startElement += maxByteRequest / 2;
 			}
@@ -1053,13 +1047,12 @@ MCProtocol.prototype.prepareWritePacket = function (itemList) {
 	self.clearWritePacketTimeouts();
 	self.writePacketArray = [];
 
-		// Set up the write packet
+	// Set up the write packet
 	while (requestNumber < requestList.length) {
 		numItems = 0;
 		self.writePacketArray.push(new PLCPacket());
 		var thisPacketNumber = self.writePacketArray.length - 1;
 		self.writePacketArray[thisPacketNumber].itemList = [];  // Initialize as array.  
-
 		for (var i = requestNumber; i < requestList.length; i++) {
 			if (numItems == 1) {
 				break;  // Used to break when packet was full.  Now break when we can't fit this packet in here.  
@@ -1092,7 +1085,7 @@ MCProtocol.prototype.prepareReadPacket = function (items) {
 			outputLog("Dropping an undefined request item.", "WARN", self.connectionID);
 		}
 	}
-	
+
 	// Sort the items using the sort function, by type and offset.  
 	itemList.sort(itemListSorter);
 
@@ -1100,9 +1093,6 @@ MCProtocol.prototype.prepareReadPacket = function (items) {
 	if (itemList.length == 0) {
 		return undefined;
 	}
-
-	self.globalReadBlockList = [];
-	itemList[0].block = thisBlock;
 
 	/* DISABLED for now as I need to match the items[x] with the cacheitem[x] and update cacheitem[x].cb to new items[x].cb callback
 
@@ -1162,7 +1152,7 @@ MCProtocol.prototype.prepareReadPacket = function (items) {
 
 	// Optimize the items into blocks
 	for (i = 1; i < itemList.length; i++) {
-		maxByteRequest = itemList[i].maxWordLength() * 2; 
+		maxByteRequest = itemList[i].maxWordLength() * 2;
 
 		if ((itemList[i].areaMCCode !== blocklist[thisBlock].areaMCCode) ||   	// Can't optimize between areas
 			(!self.isOptimizableArea(itemList[i].areaMCCode)) || 					// May as well try to optimize everything.  
@@ -1233,7 +1223,7 @@ MCProtocol.prototype.prepareReadPacket = function (items) {
 		// Always create a request for a globalReadBlockList. 
 		let blockListItem = blocklist[i];
 		// How many parts?
-		maxByteRequest = blockListItem.maxWordLength() * 2; 
+		maxByteRequest = blockListItem.maxWordLength() * 2;
 		blockListItem.parts = Math.ceil(blockListItem.byteLength / maxByteRequest);
 		var startElement = blockListItem.requestOffset; // try to ignore the offset
 		var remainingLength = blockListItem.byteLength;
@@ -1242,9 +1232,9 @@ MCProtocol.prototype.prepareReadPacket = function (items) {
 		//initialise the buffers
 		blockListItem.byteBuffer.fill(0)// = new Buffer(blockListItem.byteLength);
 		blockListItem.qualityBuffer.fill(0)// = new Buffer(blockListItem.byteLength);
-		
+
 		blockListItem.requestReference = [];
-		
+
 		// If we need to spread the sending/receiving over multiple packets... 
 		for (j = 0; j < blockListItem.parts; j++) {
 			requestList[thisRequest] = blockListItem.clone();
@@ -1271,7 +1261,7 @@ MCProtocol.prototype.prepareReadPacket = function (items) {
 					thisReqItem.arrayLength = thisReqItem.byteLength / 2;//globalReadBlockList[thisBlock].byteLength;		
 				}
 			}
-			outputLog(`Created block part (reqItem) ${j+1} of ${blockListItem.parts} for request '${blockListItem.useraddr}', .offset (device number) == ${thisReqItem.offset}, byteLength==${thisReqItem.byteLength}`, "DEBUG");
+			outputLog(`Created block part (reqItem) ${j + 1} of ${blockListItem.parts} for request '${blockListItem.useraddr}', .offset (device number) == ${thisReqItem.offset}, byteLength==${thisReqItem.byteLength}`, "DEBUG");
 
 			remainingLength -= maxByteRequest;
 			if (blockListItem.bitNative) {
@@ -1282,7 +1272,7 @@ MCProtocol.prototype.prepareReadPacket = function (items) {
 			}
 			thisRequest++;
 		}
-		
+
 
 	}
 
@@ -1371,7 +1361,7 @@ MCProtocol.prototype.sendReadPacket = function (arg) {
 			var item = readPacket.itemList[j];
 			item.sendTime = Date.now();
 			readPacket.seqNum = self.nextSequenceNumber();// readPacket.seqNum;
-			item.toBuffer(self.isAscii, self.frame, self.plcType, readPacket.seqNum, self.network, self.PCStation, self.PLCStation, self.PLCModuleNo);	
+			item.toBuffer(self.isAscii, self.frame, self.plcType, readPacket.seqNum, self.network, self.PCStation, self.PLCStation, self.PLCModuleNo);
 			returnedBfr = item.buffer.data;
 			returnedBfr.copy(self.readReq, curLength);
 			curLength += returnedBfr.length;
@@ -1569,30 +1559,30 @@ MCProtocol.prototype.onResponse = function (rawdata, rinfo) {
 	// numbers (this is what we've done) or fake sequence numbers (adds code complexity for no perceived benefit)
 	let _isReading = self.isReading();
 	let _isWriting = self.isWriting();
-	let rh = decodeResponseHeader(self,data)
+	let rh = decodeResponseHeader(self, data)
 
 	//TODO: Consider data having multiple responses (e.g. 4E send multiple commands with seq - multiple responses may arrive in same packet)
 
-	if(!_isReading && !_isWriting){
+	if (!_isReading && !_isWriting) {
 		outputLog("Unexpected data received " + JSON.stringify(data) + " dropping packet! ", "WARN");
-		outputLog(rh,"TRACE");
+		outputLog(rh, "TRACE");
 		return null;
 	}
-	if(self.frame != "4E"){
+	if (self.frame != "4E") {
 		//1E and 3E dont have seq number. Ideally for 4E frame, we would send all frames (upto buffer capability) & match up the responses to the sequence numbers
 		rh.seqNum = self.lastPacketSent.seqNum;
 	}
-	if(rh.valid == false && rh.lastError) {
+	if (rh.valid == false && rh.lastError) {
 		outputLog(rh.lastError + " - dropping packet", "ERROR");
-		outputLog(rh,"TRACE");
-		return null;		
-	}
-	if(rh.seqNum != self.lastPacketSent.seqNum){
-		outputLog(`Unexpected response.  Expected sequence number ${self.lastPacketSent.seqNum}, received ${rh.seqNum} - dropping packet`, "WARN");
-		outputLog(rh,"TRACE");
+		outputLog(rh, "TRACE");
 		return null;
 	}
-	if(rh.valid){
+	if (rh.seqNum != self.lastPacketSent.seqNum) {
+		outputLog(`Unexpected response.  Expected sequence number ${self.lastPacketSent.seqNum}, received ${rh.seqNum} - dropping packet`, "WARN");
+		outputLog(rh, "TRACE");
+		return null;
+	}
+	if (rh.valid) {
 		if (_isReading) {
 			isReadResponse = true;
 			outputLog("Received Read Response", "DEBUG");
@@ -1605,7 +1595,7 @@ MCProtocol.prototype.onResponse = function (rawdata, rinfo) {
 		}
 	} else {
 		outputLog("Response is not valid - dropping", "WARN");
-		outputLog(rh,"TRACE");
+		outputLog(rh, "TRACE");
 		return null;
 	}
 }
@@ -1686,19 +1676,15 @@ MCProtocol.prototype.writeResponse = function (data, decodedHeader) {
 			result.dataTypeByteLength = theItem.dtypelen;
 			result.deviceNo = theItem.offset;
 			result.bitOffset = theItem.bitOffset;
+			results[theItem.useraddr] = result;
 
 			if (typeof (theItem.cb) === 'function') {
 				outputLog("Now calling back item.cb().", "DEBUG", self.connectionID);
 				outputLog(util.format(result), "DEBUG");
 				theItem.cb(!result.isGood, result)
 			}
-			if (theItem.action == "read") {
-				self.removeItems(theItem.useraddr);
-			}
-			results[theItem.useraddr] = result;
-
 		}
-		self.emit('message',anyBadQualities, results);
+		self.emit('message', anyBadQualities, results);
 		if (typeof (self.writeDoneCallback) === 'function') {
 			outputLog("Now calling back readDoneCallback(). Sending the following values...", "DEBUG", self.connectionID);
 			outputLog(util.format(results), "DEBUG");
@@ -1707,7 +1693,7 @@ MCProtocol.prototype.writeResponse = function (data, decodedHeader) {
 
 		self.processQueueASAP();
 	}
-	
+
 }
 
 
@@ -1818,11 +1804,11 @@ MCProtocol.prototype.readResponse = function (data, decodedHeader) {
 		}
 
 		// Inform our user that we are done and that the values are ready for pickup.
-		self.emit('message',anyBadQualities, results);
+		self.emit('message', anyBadQualities, results);
 		if (typeof (self.readDoneCallback) === 'function') {
 			outputLog("Now calling back readDoneCallback(). Sending the following values...", "DEBUG", self.connectionID);
 			outputLog(util.format(results), "DEBUG");
-			
+
 			self.readDoneCallback(anyBadQualities, results);
 		}
 
@@ -1841,7 +1827,7 @@ MCProtocol.prototype.readResponse = function (data, decodedHeader) {
 
 MCProtocol.prototype.onClientDisconnect = function (err) {
 	var self = this;
-	self.emit('close',err);
+	self.emit('close', err);
 	outputLog('EIP/TCP DISCONNECTED.');
 	self.connectionCleanup();
 	self.tryingToConnectNow = false;
@@ -1864,11 +1850,11 @@ MCProtocol.prototype.connectionReset = function () {
 MCProtocol.prototype.resetNow = function () {
 	var self = this;
 	outputLog('resetNow is happening', "DEBUG");
-	if(self.connectionState == 4){
-		if(self.connectionParams.protocol == "UDP"){
-				self.netClient.close();
+	if (self.connectionState == 4) {
+		if (self.connectionParams.protocol == "UDP") {
+			self.netClient.close();
 		} else {
-				self.netClient.end();
+			self.netClient.end();
 		}
 	}
 	self.connectionState = 0;
@@ -1901,7 +1887,7 @@ MCProtocol.prototype.connectionCleanup = function () {
 }
 
 function outputLog(txt, debugLevel, id) {
-	if(effectiveDebugLevel < 0){
+	if (effectiveDebugLevel < 0) {
 		return;//NONE
 	}
 	var idtext;
@@ -1912,12 +1898,12 @@ function outputLog(txt, debugLevel, id) {
 	}
 	var t = process.hrtime();
 	var s = new Date().toISOString() + " " + Math.round(t[1] / 1000) + " ";
-	
+
 	let level = 3;//debug by default
-	if(typeof debugLevel == "number"){
+	if (typeof debugLevel == "number") {
 		level = debugLevel;
 	} else {
-		if(!debugLevel){
+		if (!debugLevel) {
 			debugLevel = "DEBUG";
 		}
 		switch (debugLevel) {
@@ -1949,7 +1935,7 @@ function doneSending(element) {
 }
 
 function processMBPacket(decodedHeader, theData, theItem, thePointer, frame) {
-	
+
 	// Create a new buffer for the quality.  
 	theItem.qualityBuffer = Buffer.alloc(theItem.byteLength);
 	theItem.qualityBuffer.fill(MCProtocol.prototype.enumOPCQuality.unknown.value);
@@ -1958,14 +1944,216 @@ function processMBPacket(decodedHeader, theData, theItem, thePointer, frame) {
 	theItem.endDetail = null;
 	theItem.lastError = null;
 
-	if(!decodedHeader || !decodedHeader.valid){
+	if (!decodedHeader || !decodedHeader.valid) {
 		theItem.valid = false;
-		if(decodedHeader)
+		if (decodedHeader)
 			theItem.lastError = decodedHeader.lastError || "Response Header is not valid";
 		else
 			theItem.lastError = "Response Header is not valid";
 		outputLog(theItem.lastError, "WARN");  // Can't log more info here as we dont have "self" info
 		return 0;   			// Hard to increment the pointer so we call it a malformed packet and we're done.      
+	}
+
+	// There is no reported data length to check here - 
+	// reportedDataLength = theData[9];
+	if (theItem.bitNative && theItem.writeOperation)
+		expectedLength = Math.ceil(theItem.arrayLength / 2);//2 bits are return per byte (pg91)
+	else
+		expectedLength = theItem.byteLength;
+
+	if (decodedHeader.dataLength !== expectedLength) {
+		decodedHeader.valid = false;
+		theItem.valid = false;
+		theItem.lastError = 'Invalid "Response Data Length" - Expected ' + expectedLength + ' but got ' + (decodedHeader.dataLength) + ' bytes.';
+		decodedHeader.lastError = theItem.lastError;
+		outputLog(theItem.lastError, "ERROR");
+		return 1;
+	}
+
+	// Looks good so far.  
+	// set the data pointer to start of data.
+	thePointer = decodedHeader.dataStart;
+
+	var arrayIndex = 0;
+
+	theItem.valid = true;
+	theItem.byteBuffer = theData.slice(thePointer); // This means take to end.
+
+	outputLog('Byte Buffer is:', "TRACE");
+	outputLog(theItem.byteBuffer, "TRACE");
+
+	outputLog('Marking quality as good.', "TRACE");
+	theItem.qualityBuffer.fill(MCProtocol.prototype.enumOPCQuality.good.value);  //  
+
+	return -1; //thePointer;
+}
+
+
+
+
+/**
+ * Decodes a reply from PLC. NOTE: Different properties will be set depeding on the frame used.  e.g. `.seq` is only valid for 4E frames.
+ *
+ * @param {*} mcp - this MCProtocol object (required for access to frame)
+ * @param {*} theData - the data as it comes direct from the PLC 
+ * @returns an object containing the decoded header.  check `.valid` before using values
+ */
+function decodeResponseHeader(mcp, theData) {
+
+	//18.1 1E Message Format pg 389
+	// Subheader, End code, Response data
+	// Subheader is 1 byte. Value should be between Original Req Subheader + 0x80
+	// End Code is 1 byte. Value should be 0 for normal
+	// Response Data.  Non for write op, Data for Read op, Abnormal Code if End Code != 0
+
+	//5.2 3E,4E Message Format pg 41 
+	// Subheader, Access route, Response data length, End code, Response data
+
+	// Subheader
+	//  4E 6byes 0x0054 + serial number + 0x0000 (6b) 1234H (5400 = 4E frame, 3412=1234h, 0000 fixed) 
+	//  3E 2bytes 5000  
+	// Access route
+	// 5bytes
+	//* (Byte) Network No ,  Specify the network No. of an access target.
+	//* (Byte) PC No. (byte) Specify the network module station No. of an access target
+	//* (UINT16 LE) Request destination module I/O No 
+	//* (Byte) Request destination module station No. 
+	// Response data length
+	// 2bytes
+	// End code
+	// 2bytes
+	// Response data - Non for write op, Data for Read op, Error Information if End Code != 0
+
+
+	//TODO: put these into an enum of frame eg. ("1E":{minResponseLength:2, other:xxx})
+	let frame = mcp.frame;
+	var minLength = 0;
+	switch (frame) {
+		case '1E':
+			minLength = 2;
+			break;
+		case '3E':
+			minLength = 11;
+			break;
+		case '4E':
+			minLength = 15;
+			break;
+		default:
+			break;
+	}
+
+	var reply = {
+		expectedResponse: undefined,
+		response: undefined,
+		endCode: undefined,
+		accessRouteNetworkNo: undefined,
+		accessPCNo: undefined,
+		accessRouteModuleIONo: undefined,
+		accessRouteModuleStationNo: undefined,
+		seq: undefined,
+		length: undefined,
+		dataLength: undefined, //length: Noof bytes in "Response data"  deduct 2 from length (to remove endCode)
+		dataStart: undefined,
+		lastError: "",
+		valid: false
+	};
+
+	try {
+		if (theData.length < minLength) {
+			if (typeof (theData) !== "undefined") {
+				throw new Error(`Malformed MC Packet - Expected at least '${minLength}' Bytes, however, only received '${theData.length}' Bytes(s)`)
+			} else {
+				throw new Error("Timeout error - zero length packet");
+			}
+		}
+
+		if (frame == '1E') {
+			reply.expectedResponse = theData[0];//set the expected to same as received. As this is a 1E frame, we dont know expected response at this time.  This will be checked later.
+			//0x80=128 PG401 Batch read in bit units (command: 00) OK response
+			//0x81=129 PG403 Batch read in word units (command: 01) OK response
+			//0x82=130 PG405 Batch write in bit units (command: 02) OK response
+			//0x83=131 PG407 Batch write in word units (command: 03) OK response
+			reply.response = theData[0];
+			reply.endCode = theData[1];
+			reply.dataLength = theData.length - 2; //length: Noof bytes in "Response data"  deduct 2 for length of errcode
+			reply.dataStart = 2;
+		}
+
+		if (frame == '3E') {
+			reply.expectedResponse = 0x00D0;
+			reply.response = theData.readUInt16LE(0);
+			reply.accessRouteNetworkNo = theData[2];
+			reply.accessPCNo = theData[3];
+			reply.accessRouteModuleIONo = theData.readUInt16LE(4);
+			reply.accessRouteModuleStationNo = theData[6];
+			reply.length = theData.readUInt16LE(7); //length Noof bytes from start of "end code" ~ end of "Response data"
+			reply.endCode = theData.readUInt16LE(9);
+			//rExtraInfo = theData.readUInt16LE(11);
+			reply.dataLength = reply.length - 2; //length: Noof bytes in "Response data"  deduct 2 for length of errcode
+			reply.dataStart = 11;
+		}
+
+		if (frame == '4E') {
+			reply.expectedResponse = 0x00D4;
+			reply.response = theData.readUInt16LE(0);
+			reply.seqNum = theData.readUInt16LE(2);
+			let xxx = theData.readUInt16LE(4); //dummy
+			reply.accessRouteNetworkNo = theData[6];
+			reply.accessPCNo = theData[7];
+			reply.accessRouteModuleIONo = theData.readUInt16LE(8);
+			reply.accessRouteModuleStationNo = theData[10];
+			reply.length = theData.readUInt16LE(11);//length Noof bytes from start of "end code" ~ end of "Response data"
+			reply.endCode = theData.readUInt16LE(13);
+			//rExtraInfo = theData.readUInt16LE(15);
+			reply.dataLength = reply.length - 2; //length: Noof bytes in "Response data"  deduct 2 for length of errcode
+			reply.dataStart = 15;
+
+		}
+		if (reply.response !== reply.expectedResponse) {
+			reply.lastError = 'Invalid MC - Expected first part to be ' + decimalToHexString(reply.expectedResponse) + ' - got ' + decimalToHexString(reply.response) + " (" + reply.response + ")";
+			return reply;
+		}
+
+		if (reply.endCode !== 0) {
+			reply.endDetail = theData.slice(reply.dataStart);//all response data is error info when endcode is not 0
+			reply.lastError = `Reply End code '${reply.endCode} is not zero. For extra info, see "endDetail" `;
+			return reply;
+		}
+	} catch (error) {
+		reply.lastError = `Exception - ${error}`;
+		return reply;
+	}
+	reply.valid = true;
+	return reply;
+}
+
+
+function processMBWriteItem(decodedHeader, theItem, thePointer, frame) {
+	// Create a new buffer for the quality.  
+	// theItem.writeQualityBuffer = new Buffer(theItem.byteLength);
+	theItem.writeQualityBuffer.fill(MCProtocol.prototype.enumOPCQuality.unknown.value);
+	//reset some flags...#
+	theItem.endCode = null;
+	theItem.endDetail = null;
+	theItem.lastError = null;
+	if (!decodedHeader) {
+		theItem.valid = false;
+		theItem.endCode = -1; //TODO: Determine a suitable endCode (or none!)
+		theItem.lastError = "Response Header is not valid / empty (should not happen)";
+		theItem.writeQualityBuffer.fill(MCProtocol.prototype.enumOPCQuality.bad.value);
+		outputLog(theItem.lastError, "WARN");
+		return 0;
+	}
+
+	if (!decodedHeader.valid) {
+		theItem.valid = false;
+		theItem.lastError = decodedHeader.lastError || "Response Header is not valid";
+		theItem.endCode = decodedHeader.endCode;
+		theItem.endDetail = decodedHeader.endDetail;
+		//TODO: Fill quality with more specific / appropriate value (based on endCode)
+		theItem.writeQualityBuffer.fill(MCProtocol.prototype.enumOPCQuality.bad.value);
+		outputLog(theItem.lastError, "WARN");
+		return 0;
 	}
 
 	//success
@@ -2030,7 +2218,7 @@ function processMCReadItem(theItem, isAscii, frame) {
 			bitShiftAmount = theItem.remainder;
 		}
 		var stringNullFound = false;
-		
+
 		for (arrayIndex = 0; arrayIndex < theItem.arrayLength; arrayIndex++) {
 
 			let qual = theItem.qualityBuffer[thePointer];
@@ -2315,7 +2503,7 @@ Buffer.prototype.setFloatBESwap = function (val, ptr) {
 }
 
 
-Buffer.prototype.getFloatBESwap = function(ptr) {
+Buffer.prototype.getFloatBESwap = function (ptr) {
 	var newBuf = Buffer.alloc(4);
 	newBuf[0] = this[ptr + 2];
 	newBuf[1] = this[ptr + 3];
@@ -2325,7 +2513,7 @@ Buffer.prototype.getFloatBESwap = function(ptr) {
 }
 
 
-Buffer.prototype.getInt32BESwap = function(ptr) {
+Buffer.prototype.getInt32BESwap = function (ptr) {
 	var newBuf = Buffer.alloc(4);
 	newBuf[0] = this[ptr + 2];
 	newBuf[1] = this[ptr + 3];
@@ -2334,7 +2522,7 @@ Buffer.prototype.getInt32BESwap = function(ptr) {
 	return newBuf.readInt32BE(0);
 }
 
-Buffer.prototype.setInt32BESwap = function(val,ptr) {
+Buffer.prototype.setInt32BESwap = function (val, ptr) {
 	var newBuf = Buffer.alloc(4);
 	newBuf.writeInt32BE(Math.round(val), 0);
 	this[ptr + 2] = newBuf[0];
@@ -2344,7 +2532,7 @@ Buffer.prototype.setInt32BESwap = function(val,ptr) {
 	return ptr + 4;
 }
 
-Buffer.prototype.getUInt32BESwap = function(ptr) {
+Buffer.prototype.getUInt32BESwap = function (ptr) {
 	var newBuf = Buffer.alloc(4);
 	newBuf[0] = this[ptr + 2];
 	newBuf[1] = this[ptr + 3];
@@ -2353,7 +2541,7 @@ Buffer.prototype.getUInt32BESwap = function(ptr) {
 	return newBuf.readUInt32BE(0);
 }
 
-Buffer.prototype.setUInt32BESwap = function(val,ptr) {
+Buffer.prototype.setUInt32BESwap = function (val, ptr) {
 	var newBuf = Buffer.alloc(4);
 	newBuf.writeUInt32BE(Math.round(val), 0);
 	this[ptr + 2] = newBuf[0];
@@ -2392,64 +2580,64 @@ MCProtocol.prototype.enumMaxWordLength = _enum({
 	batchReadWordUnits04010000: { //Batch read in word units (command: 0401) PG86
 		description: "Batch read in word units",
 		command: 0x0401, subCommand: 0x0000,
-		"BITDevice": {A:64, QnA:480, Q:960, L:960 /*, R:960 does iQR support subCommand 0x0? */}, 
-		"WORDDevice": {A:32, QnA:480, Q:960, L:960/*, R:960 does iQR support subCommand 0x0? */}, 
+		"BITDevice": { A: 64, QnA: 480, Q: 960, L: 960 /*, R:960 does iQR support subCommand 0x0? */ },
+		"WORDDevice": { A: 32, QnA: 480, Q: 960, L: 960/*, R:960 does iQR support subCommand 0x0? */ },
 	},
 	batchReadWordUnits04010002: { //Batch read in word units (command: 0401) PG86
 		description: "Batch read in word units",
 		command: 0x0401, subCommand: 0x0002,
-		"BITDevice": {R:960}, 
-		"WORDDevice": {R:960}, 
+		"BITDevice": { R: 960 },
+		"WORDDevice": { R: 960 },
 	},
 	batchReadBitUnits04010001: { //Batch read in bit units (command: 0401) PG90
 		description: "Batch read in word units",
 		command: 0x0401, subCommand: 0x0001,
-		"BITDevice": {A:64, QnA:896, Q:1792, L:1792 /*, R:1792 does iQR support subCommand 0x1? */}, 
-		"WORDDevice": {A:64, QnA:896, Q:1792, L:1792/*, R:1792 does iQR support subCommand 0x1? */}, 
+		"BITDevice": { A: 64, QnA: 896, Q: 1792, L: 1792 /*, R:1792 does iQR support subCommand 0x1? */ },
+		"WORDDevice": { A: 64, QnA: 896, Q: 1792, L: 1792/*, R:1792 does iQR support subCommand 0x1? */ },
 	},
 	batchReadBitUnits04010003: { //Batch read in bit units (command: 0401) PG90
 		description: "Batch read in word units",
 		command: 0x0401, subCommand: 0x0003,
-		"BITDevice": {R:1792}, 
-		"WORDDevice": {R:1792}, 
+		"BITDevice": { R: 1792 },
+		"WORDDevice": { R: 1792 },
 	},
 	batchWriteWordUnits14010000: { //Batch Write in word units (command: 1401) PG92
 		description: "Batch Write in word units",
 		command: 0x1401, subCommand: 0x0000,
-		"BITDevice": {A:10, QnA:480, Q:960, L:960 /*, R:960 does iQR support subCommand 0x0? */}, 
-		"WORDDevice": {A:64, QnA:480, Q:960, L:960/*, R:960 does iQR support subCommand 0x0? */}, 
-		"DWORDDevice": {Q:960, L:960/*, R:960 does iQR support subCommand 0x0? */}, 
+		"BITDevice": { A: 10, QnA: 480, Q: 960, L: 960 /*, R:960 does iQR support subCommand 0x0? */ },
+		"WORDDevice": { A: 64, QnA: 480, Q: 960, L: 960/*, R:960 does iQR support subCommand 0x0? */ },
+		"DWORDDevice": { Q: 960, L: 960/*, R:960 does iQR support subCommand 0x0? */ },
 	},
 	batchWriteWordUnits14010002: { //Batch Write in word units (command: 1401) PG92
 		description: "Batch Write in word units",
 		command: 0x1401, subCommand: 0x0002,
-		"BITDevice": {R:960}, 
-		"WORDDevice": {R:960}, 
-		"DWORDDevice": {R:960}, 
+		"BITDevice": { R: 960 },
+		"WORDDevice": { R: 960 },
+		"DWORDDevice": { R: 960 },
 	},
 	batchWriteBitUnits14010001: { //Batch Write in Bit units (command: 1401) PG95
 		description: "Batch Write in Bit units",
 		command: 0x1401, subCommand: 0x0001,
-		"BITDevice": {A:10, QnA:896, Q:1792, L:1792 /*, R:1792 does iQR support subCommand 0x0? */}, 
-		"WORDDevice": {A:64, QnA:896, Q:1792, L:1792/*, R:1792 does iQR support subCommand 0x0? */}, 
-		"DWORDDevice": {Q:960, L:960/*, R:960 does iQR support subCommand 0x0? */}, 
+		"BITDevice": { A: 10, QnA: 896, Q: 1792, L: 1792 /*, R:1792 does iQR support subCommand 0x0? */ },
+		"WORDDevice": { A: 64, QnA: 896, Q: 1792, L: 1792/*, R:1792 does iQR support subCommand 0x0? */ },
+		"DWORDDevice": { Q: 960, L: 960/*, R:960 does iQR support subCommand 0x0? */ },
 	},
 	batchWriteBitUnits14010003: { //Batch Write in Bit units (command: 1401) PG95
 		description: "Batch Write in Bit units",
 		command: 0x1401, subCommand: 0x0003,
-		"BITDevice": {R:1792}, 
-		"WORDDevice": {R:1792}, 
-		"DWORDDevice": {R:1792}, 
+		"BITDevice": { R: 1792 },
+		"WORDDevice": { R: 1792 },
+		"DWORDDevice": { R: 1792 },
 	},
 
 });
 
 MCProtocol.prototype.enumPLCTypes = _enum({
-	"A": {wordDeviceMax: 64, bitWriteDeviceMax : 32 /*160 points PG96*/,  bitReadDeviceMax : 64 /*256 points PG91*/, requiredWriteBufferSize: ((64*2) + 30/*for frame etc*/) },
-	"QnA": {wordDeviceMax: 480, bitWriteDeviceMax: 480, bitReadDeviceMax: 480, requiredWriteBufferSize: ((480*2) + 30 /*for frame etc*/)},
-	"Q": {wordDeviceMax: 960, bitWriteDeviceMax: 960, bitReadDeviceMax: 960, doubleWordDeviceMax: 960, requiredWriteBufferSize: ((960*2) + 30 /*for frame etc*/)},
-	"L": {wordDeviceMax: 960, bitWriteDeviceMax: 960, bitReadDeviceMax: 960, doubleWordDeviceMax: 960, requiredWriteBufferSize: ((960*2) + 30 /*for frame etc*/)},
-	'R': {wordDeviceMax: 960, bitWriteDeviceMax: 960, bitReadDeviceMax: 960, doubleWordDeviceMax: 960, requiredWriteBufferSize: ((960*2) + 30 /*for frame etc*/)},
+	"A": { wordDeviceMax: 64, bitWriteDeviceMax: 32 /*160 points PG96*/, bitReadDeviceMax: 64 /*256 points PG91*/, requiredWriteBufferSize: ((64 * 2) + 30/*for frame etc*/) },
+	"QnA": { wordDeviceMax: 480, bitWriteDeviceMax: 480, bitReadDeviceMax: 480, requiredWriteBufferSize: ((480 * 2) + 30 /*for frame etc*/) },
+	"Q": { wordDeviceMax: 960, bitWriteDeviceMax: 960, bitReadDeviceMax: 960, doubleWordDeviceMax: 960, requiredWriteBufferSize: ((960 * 2) + 30 /*for frame etc*/) },
+	"L": { wordDeviceMax: 960, bitWriteDeviceMax: 960, bitReadDeviceMax: 960, doubleWordDeviceMax: 960, requiredWriteBufferSize: ((960 * 2) + 30 /*for frame etc*/) },
+	'R': { wordDeviceMax: 960, bitWriteDeviceMax: 960, bitReadDeviceMax: 960, doubleWordDeviceMax: 960, requiredWriteBufferSize: ((960 * 2) + 30 /*for frame etc*/) },
 });
 
 MCProtocol.prototype.enumOPCQuality = _enum({
@@ -2473,96 +2661,96 @@ MCProtocol.prototype.enumOPCQuality = _enum({
 
 //https://dl.mitsubishielectric.com/dl/fa/document/manual/plc/sh080008/sh080008x.pdf PG 68
 MCProtocol.prototype.enumDeviceCodeSpecQ = _enum({
-	SM: {symbol: 'SM', type: 'BIT', notation: 'Decimal', binary: 0x91, ascii: 'SM', description: 'Special relay'},
-	SD: {symbol: 'SD', type: 'WORD', notation: 'Decimal', binary: 0xA9, ascii: 'SD', description: 'Special register'},
-	TS: {symbol: 'TS', type: 'BIT', notation: 'Decimal', binary: 0xC1, ascii: 'TS', description: 'Timer Contact'},
-	TC: {symbol: 'TC', type: 'BIT', notation: 'Decimal', binary: 0xC0, ascii: '', description: 'Timer Coil'},
-	TN: {symbol: 'TN', type: 'WORD', notation: 'Decimal', binary: 0xC2, ascii: '', description: 'Timer Current value'},
-	STS: {symbol: 'STS', type: 'BIT', notation: 'Decimal', binary: 0xC7, ascii: 'SS', description: 'Retentive timer Contact'},
-	STC: {symbol: 'STC', type: 'BIT', notation: 'Decimal', binary: 0xC6, ascii: 'SC', description: 'Retentive timer Coil'},
-	STN: {symbol: 'STN', type: 'WORD', notation: 'Decimal', binary: 0xC8, ascii: 'SN', description: 'Retentive timer Current value'},
-	CS: {symbol: 'CS', type: 'BIT', notation: 'Decimal', binary: 0xC4, ascii: 'CS', description: 'Counter Contact CS'},
-	CC: {symbol: 'CC', type: 'BIT', notation: 'Decimal', binary: 0xC3, ascii: 'CC', description: 'Counter Coil CC'},
-	CN: {symbol: 'CN', type: 'WORD', notation: 'Decimal', binary: 0xC5, ascii: 'CN', description: 'Counter Current value CN'},
-	SB: {symbol: 'SB', type: 'BIT', notation: 'Hexadecimal', binary: 0xA1, ascii: 'SB', description: 'Link special relay'},
-	SW: {symbol: 'SW', type: 'WORD', notation: 'Hexadecimal', binary: 0xB5, ascii: 'SW', description: 'Link special register'},
-	DX: {symbol: 'DX', type: 'BIT', notation: 'Hexadecimal', binary: 0xA2, ascii: 'DX', description: 'Direct access input'},
-	DY: {symbol: 'DY', type: 'BIT', notation: 'Hexadecimal', binary: 0xA3, ascii: 'DY', description: 'Direct access output'},
+	SM: { symbol: 'SM', type: 'BIT', notation: 'Decimal', binary: 0x91, ascii: 'SM', description: 'Special relay' },
+	SD: { symbol: 'SD', type: 'WORD', notation: 'Decimal', binary: 0xA9, ascii: 'SD', description: 'Special register' },
+	TS: { symbol: 'TS', type: 'BIT', notation: 'Decimal', binary: 0xC1, ascii: 'TS', description: 'Timer Contact' },
+	TC: { symbol: 'TC', type: 'BIT', notation: 'Decimal', binary: 0xC0, ascii: '', description: 'Timer Coil' },
+	TN: { symbol: 'TN', type: 'WORD', notation: 'Decimal', binary: 0xC2, ascii: '', description: 'Timer Current value' },
+	STS: { symbol: 'STS', type: 'BIT', notation: 'Decimal', binary: 0xC7, ascii: 'SS', description: 'Retentive timer Contact' },
+	STC: { symbol: 'STC', type: 'BIT', notation: 'Decimal', binary: 0xC6, ascii: 'SC', description: 'Retentive timer Coil' },
+	STN: { symbol: 'STN', type: 'WORD', notation: 'Decimal', binary: 0xC8, ascii: 'SN', description: 'Retentive timer Current value' },
+	CS: { symbol: 'CS', type: 'BIT', notation: 'Decimal', binary: 0xC4, ascii: 'CS', description: 'Counter Contact CS' },
+	CC: { symbol: 'CC', type: 'BIT', notation: 'Decimal', binary: 0xC3, ascii: 'CC', description: 'Counter Coil CC' },
+	CN: { symbol: 'CN', type: 'WORD', notation: 'Decimal', binary: 0xC5, ascii: 'CN', description: 'Counter Current value CN' },
+	SB: { symbol: 'SB', type: 'BIT', notation: 'Hexadecimal', binary: 0xA1, ascii: 'SB', description: 'Link special relay' },
+	SW: { symbol: 'SW', type: 'WORD', notation: 'Hexadecimal', binary: 0xB5, ascii: 'SW', description: 'Link special register' },
+	DX: { symbol: 'DX', type: 'BIT', notation: 'Hexadecimal', binary: 0xA2, ascii: 'DX', description: 'Direct access input' },
+	DY: { symbol: 'DY', type: 'BIT', notation: 'Hexadecimal', binary: 0xA3, ascii: 'DY', description: 'Direct access output' },
 	//ZR: {symbol: 'ZR', type: 'WORD', notation: 'Hexadecimal', binary: 0xB0, ascii: 'ZR', description: 'File register'},  << Manual says hex, its actually decimal!!!
-	ZR: {symbol: 'ZR', type: 'WORD', notation: 'Decimal', binary: 0xB0, ascii: 'ZR', description: 'File register'},
-	X: {symbol: 'X', type: 'BIT', notation: 'Hexadecimal', binary: 0x9C, ascii: 'X*', description: 'Input'},
-	Y: {symbol: 'Y', type: 'BIT', notation: 'Hexadecimal', binary: 0x9D, ascii: 'Y*', description: 'Output'},
-	M: {symbol: 'M', type: 'BIT', notation: 'Decimal', binary: 0x90, ascii: 'M*', description: 'Internal relay'},
-	L: {symbol: 'L', type: 'BIT', notation: 'Decimal', binary: 0x92, ascii: 'L*', description: 'Latch relay'},
-	F: {symbol: 'F', type: 'BIT', notation: 'Decimal', binary: 0x93, ascii: 'F*', description: 'Annunciator'},
-	V: {symbol: 'V', type: 'BIT', notation: 'Decimal', binary: 0x94, ascii: 'V*', description: 'Edge relay'},
-	B: {symbol: 'B', type: 'BIT', notation: 'Hexadecimal', binary: 0xA0, ascii: 'B*', description: 'Link relay'},
-	D: {symbol: 'D', type: 'WORD', notation: 'Decimal', binary: 0xA8, ascii: 'D*', description: 'Data register'},
-	W: {symbol: 'W', type: 'WORD', notation: 'Hexadecimal', binary: 0xB4, ascii: 'W*', description: 'Link register'},
-	Z: {symbol: 'Z', type: 'WORD', notation: 'Decimal', binary: 0xCC, ascii: 'Z*', description: 'Index register'},
-	R: {symbol: 'R', type: 'WORD', notation: 'Decimal', binary: 0xAF, ascii: 'R*', description: 'File register'},
+	ZR: { symbol: 'ZR', type: 'WORD', notation: 'Decimal', binary: 0xB0, ascii: 'ZR', description: 'File register' },
+	X: { symbol: 'X', type: 'BIT', notation: 'Hexadecimal', binary: 0x9C, ascii: 'X*', description: 'Input' },
+	Y: { symbol: 'Y', type: 'BIT', notation: 'Hexadecimal', binary: 0x9D, ascii: 'Y*', description: 'Output' },
+	M: { symbol: 'M', type: 'BIT', notation: 'Decimal', binary: 0x90, ascii: 'M*', description: 'Internal relay' },
+	L: { symbol: 'L', type: 'BIT', notation: 'Decimal', binary: 0x92, ascii: 'L*', description: 'Latch relay' },
+	F: { symbol: 'F', type: 'BIT', notation: 'Decimal', binary: 0x93, ascii: 'F*', description: 'Annunciator' },
+	V: { symbol: 'V', type: 'BIT', notation: 'Decimal', binary: 0x94, ascii: 'V*', description: 'Edge relay' },
+	B: { symbol: 'B', type: 'BIT', notation: 'Hexadecimal', binary: 0xA0, ascii: 'B*', description: 'Link relay' },
+	D: { symbol: 'D', type: 'WORD', notation: 'Decimal', binary: 0xA8, ascii: 'D*', description: 'Data register' },
+	W: { symbol: 'W', type: 'WORD', notation: 'Hexadecimal', binary: 0xB4, ascii: 'W*', description: 'Link register' },
+	Z: { symbol: 'Z', type: 'WORD', notation: 'Decimal', binary: 0xCC, ascii: 'Z*', description: 'Index register' },
+	R: { symbol: 'R', type: 'WORD', notation: 'Decimal', binary: 0xAF, ascii: 'R*', description: 'File register' },
 	//D: {symbol: 'D', type: 'WORD', notation: 'Decimal', binary: 0xA8, ascii: 'D*', description: 'Extended data register*4'},
 	//W: {symbol: 'W', type: 'WORD', notation: 'Hexadecimal', binary: 0xB4, ascii: 'W*', description: 'Extended link register*4'},	
 });
 MCProtocol.prototype.enumDeviceCodeSpecR = _enum({
-	SM: {symbol: 'SM', type: 'BIT', notation: 'Decimal', binary: 0x0091, ascii: 'SM**', description: 'Special relay'},
-	SD: {symbol: 'SD', type: 'WORD', notation: 'Decimal', binary: 0x00A9, ascii: 'SD**', description: 'Special register'},
-	TS: {symbol: 'TS', type: 'BIT', notation: 'Decimal', binary: 0x00C1, ascii: 'TS**', description: 'Timer Contact'},
-	TC: {symbol: 'TC', type: 'BIT', notation: 'Decimal', binary: 0x00C0, ascii: 'TC**', description: 'Timer Coil'},
-	TN: {symbol: 'TN', type: 'WORD', notation: 'Decimal', binary: 0x00C2, ascii: 'TN**', description: 'Timer Current value'},
-	LTS: {symbol: 'LTS', type: 'BIT', notation: 'Decimal', binary: 0x0051, ascii: 'LTS*', description: 'Long timer, Contact'},
-	LTC: {symbol: 'LTC', type: 'BIT', notation: 'Decimal', binary: 0x0050, ascii: 'LTC*', description: 'Long timer, Coil'},
-	LTN: {symbol: 'LTN', type: 'DWORD', notation: 'Decimal', binary: 0x0052, ascii: 'LTN*', description: 'Long timer, Current value'},
-	STS: {symbol: 'STS', type: 'BIT', notation: 'Decimal', binary: 0x00C7, ascii: 'STS*', description: 'Retentive timer Contact'},
-	STC: {symbol: 'STC', type: 'BIT', notation: 'Decimal', binary: 0x00C6, ascii: 'STC*', description: 'Retentive timer Coil'},
-	STN: {symbol: 'STN', type: 'WORD', notation: 'Decimal', binary: 0x00C8, ascii: 'STN*', description: 'Retentive timer Current value'},
-	LSTS: {symbol: 'LSTS', type: 'BIT', notation: 'Decimal', binary: 0x0059, ascii: 'LSTS', description: 'Long retentive timer, Contact'},
-	LSTC: {symbol: 'LSTC', type: 'BIT', notation: 'Decimal', binary: 0x0058, ascii: 'LSTC', description: 'Long retentive timer, Coil'},
-	LSTN: {symbol: 'LSTN', type: 'DWORD', notation: 'Decimal', binary: 0x005A, ascii: 'LSTN', description: 'Long retentive timer, Current value'},
-	CS: {symbol: 'CS', type: 'BIT', notation: 'Decimal', binary: 0x00C4, ascii: 'CS**', description: 'Counter Contact CS'},
-	CC: {symbol: 'CC', type: 'BIT', notation: 'Decimal', binary: 0x00C3, ascii: 'CC**', description: 'Counter Coil CC'},
-	CN: {symbol: 'CN', type: 'WORD', notation: 'Decimal', binary: 0x00C5, ascii: 'CN**', description: 'Counter Current value CN'},
-	LCS: {symbol: 'LCS', type: 'BIT', notation: 'Decimal', binary: 0x0055, ascii: 'LCS*', description: 'Long counter, Contact'},
-	LCC: {symbol: 'LCC', type: 'BIT', notation: 'Decimal', binary: 0x0054, ascii: 'LCC*', description: 'Long counter, Coil'},
-	LCN: {symbol: 'LCN', type: 'DWORD', notation: 'Decimal', binary: 0x0056, ascii: 'LCN*', description: 'Long counter, Current value'},
-	SB: {symbol: 'SB', type: 'BIT', notation: 'Hexadecimal', binary: 0x00A1, ascii: 'SB**', description: 'Link special relay'},
-	SW: {symbol: 'SW', type: 'WORD', notation: 'Hexadecimal', binary: 0x00B5, ascii: 'SW**', description: 'Link special register'},
-	DX: {symbol: 'DX', type: 'BIT', notation: 'Hexadecimal', binary: 0x00A2, ascii: 'DX**', description: 'Direct access input'},
-	DY: {symbol: 'DY', type: 'BIT', notation: 'Hexadecimal', binary: 0x00A3, ascii: 'DY**', description: 'Direct access output'},
-	LZ: {symbol: 'LZ', type: 'DWORD', notation: 'Decimal', binary: 0x0062, ascii: 'LZ**', description: 'Long index register'},
-	ZR: {symbol: 'ZR', type: 'WORD', notation: 'Hexadecimal', binary: 0x00B0, ascii: 'ZR**', description: 'File register'},	
-	Z: {symbol: 'Z', type: 'WORD', notation: 'Decimal', binary: 0x00CC, ascii: 'Z***', description: 'Index register'},
-	R: {symbol: 'R', type: 'WORD', notation: 'Decimal', binary: 0x00AF, ascii: 'R***', description: 'File register'},
-	X: {symbol: 'X', type: 'BIT', notation: 'Hexadecimal', binary: 0x009C, ascii: 'X***', description: 'Input'},
-	Y: {symbol: 'Y', type: 'BIT', notation: 'Hexadecimal', binary: 0x009D, ascii: 'Y***', description: 'Output'},
-	M: {symbol: 'M', type: 'BIT', notation: 'Decimal', binary: 0x0090, ascii: 'M***', description: 'Internal relay'},
-	L: {symbol: 'L', type: 'BIT', notation: 'Decimal', binary: 0x0092, ascii: 'L***', description: 'Latch relay'},
-	F: {symbol: 'F', type: 'BIT', notation: 'Decimal', binary: 0x0093, ascii: 'F***', description: 'Annunciator'},
-	V: {symbol: 'V', type: 'BIT', notation: 'Decimal', binary: 0x0094, ascii: 'V***', description: 'Edge relay'},
-	B: {symbol: 'B', type: 'BIT', notation: 'Hexadecimal', binary: 0x00A0, ascii: 'B***', description: 'Link relay'},
-	D: {symbol: 'D', type: 'WORD', notation: 'Decimal', binary: 0x00A8, ascii: 'D***', description: 'Data register'},
-	W: {symbol: 'W', type: 'WORD', notation: 'Hexadecimal', binary: 0x00B4, ascii: 'W***', description: 'Link register'},
+	SM: { symbol: 'SM', type: 'BIT', notation: 'Decimal', binary: 0x0091, ascii: 'SM**', description: 'Special relay' },
+	SD: { symbol: 'SD', type: 'WORD', notation: 'Decimal', binary: 0x00A9, ascii: 'SD**', description: 'Special register' },
+	TS: { symbol: 'TS', type: 'BIT', notation: 'Decimal', binary: 0x00C1, ascii: 'TS**', description: 'Timer Contact' },
+	TC: { symbol: 'TC', type: 'BIT', notation: 'Decimal', binary: 0x00C0, ascii: 'TC**', description: 'Timer Coil' },
+	TN: { symbol: 'TN', type: 'WORD', notation: 'Decimal', binary: 0x00C2, ascii: 'TN**', description: 'Timer Current value' },
+	LTS: { symbol: 'LTS', type: 'BIT', notation: 'Decimal', binary: 0x0051, ascii: 'LTS*', description: 'Long timer, Contact' },
+	LTC: { symbol: 'LTC', type: 'BIT', notation: 'Decimal', binary: 0x0050, ascii: 'LTC*', description: 'Long timer, Coil' },
+	LTN: { symbol: 'LTN', type: 'DWORD', notation: 'Decimal', binary: 0x0052, ascii: 'LTN*', description: 'Long timer, Current value' },
+	STS: { symbol: 'STS', type: 'BIT', notation: 'Decimal', binary: 0x00C7, ascii: 'STS*', description: 'Retentive timer Contact' },
+	STC: { symbol: 'STC', type: 'BIT', notation: 'Decimal', binary: 0x00C6, ascii: 'STC*', description: 'Retentive timer Coil' },
+	STN: { symbol: 'STN', type: 'WORD', notation: 'Decimal', binary: 0x00C8, ascii: 'STN*', description: 'Retentive timer Current value' },
+	LSTS: { symbol: 'LSTS', type: 'BIT', notation: 'Decimal', binary: 0x0059, ascii: 'LSTS', description: 'Long retentive timer, Contact' },
+	LSTC: { symbol: 'LSTC', type: 'BIT', notation: 'Decimal', binary: 0x0058, ascii: 'LSTC', description: 'Long retentive timer, Coil' },
+	LSTN: { symbol: 'LSTN', type: 'DWORD', notation: 'Decimal', binary: 0x005A, ascii: 'LSTN', description: 'Long retentive timer, Current value' },
+	CS: { symbol: 'CS', type: 'BIT', notation: 'Decimal', binary: 0x00C4, ascii: 'CS**', description: 'Counter Contact CS' },
+	CC: { symbol: 'CC', type: 'BIT', notation: 'Decimal', binary: 0x00C3, ascii: 'CC**', description: 'Counter Coil CC' },
+	CN: { symbol: 'CN', type: 'WORD', notation: 'Decimal', binary: 0x00C5, ascii: 'CN**', description: 'Counter Current value CN' },
+	LCS: { symbol: 'LCS', type: 'BIT', notation: 'Decimal', binary: 0x0055, ascii: 'LCS*', description: 'Long counter, Contact' },
+	LCC: { symbol: 'LCC', type: 'BIT', notation: 'Decimal', binary: 0x0054, ascii: 'LCC*', description: 'Long counter, Coil' },
+	LCN: { symbol: 'LCN', type: 'DWORD', notation: 'Decimal', binary: 0x0056, ascii: 'LCN*', description: 'Long counter, Current value' },
+	SB: { symbol: 'SB', type: 'BIT', notation: 'Hexadecimal', binary: 0x00A1, ascii: 'SB**', description: 'Link special relay' },
+	SW: { symbol: 'SW', type: 'WORD', notation: 'Hexadecimal', binary: 0x00B5, ascii: 'SW**', description: 'Link special register' },
+	DX: { symbol: 'DX', type: 'BIT', notation: 'Hexadecimal', binary: 0x00A2, ascii: 'DX**', description: 'Direct access input' },
+	DY: { symbol: 'DY', type: 'BIT', notation: 'Hexadecimal', binary: 0x00A3, ascii: 'DY**', description: 'Direct access output' },
+	LZ: { symbol: 'LZ', type: 'DWORD', notation: 'Decimal', binary: 0x0062, ascii: 'LZ**', description: 'Long index register' },
+	ZR: { symbol: 'ZR', type: 'WORD', notation: 'Hexadecimal', binary: 0x00B0, ascii: 'ZR**', description: 'File register' },
+	Z: { symbol: 'Z', type: 'WORD', notation: 'Decimal', binary: 0x00CC, ascii: 'Z***', description: 'Index register' },
+	R: { symbol: 'R', type: 'WORD', notation: 'Decimal', binary: 0x00AF, ascii: 'R***', description: 'File register' },
+	X: { symbol: 'X', type: 'BIT', notation: 'Hexadecimal', binary: 0x009C, ascii: 'X***', description: 'Input' },
+	Y: { symbol: 'Y', type: 'BIT', notation: 'Hexadecimal', binary: 0x009D, ascii: 'Y***', description: 'Output' },
+	M: { symbol: 'M', type: 'BIT', notation: 'Decimal', binary: 0x0090, ascii: 'M***', description: 'Internal relay' },
+	L: { symbol: 'L', type: 'BIT', notation: 'Decimal', binary: 0x0092, ascii: 'L***', description: 'Latch relay' },
+	F: { symbol: 'F', type: 'BIT', notation: 'Decimal', binary: 0x0093, ascii: 'F***', description: 'Annunciator' },
+	V: { symbol: 'V', type: 'BIT', notation: 'Decimal', binary: 0x0094, ascii: 'V***', description: 'Edge relay' },
+	B: { symbol: 'B', type: 'BIT', notation: 'Hexadecimal', binary: 0x00A0, ascii: 'B***', description: 'Link relay' },
+	D: { symbol: 'D', type: 'WORD', notation: 'Decimal', binary: 0x00A8, ascii: 'D***', description: 'Data register' },
+	W: { symbol: 'W', type: 'WORD', notation: 'Hexadecimal', binary: 0x00B4, ascii: 'W***', description: 'Link register' },
 });
 
 MCProtocol.prototype.enumDeviceCodeSpec1E = _enum({
-	X: {symbol: 'X', type: 'BIT', notation: 'Hexadecimal', binary: 0x5820, ascii: 'X ', description: 'Input'},
-	Y: {symbol: 'Y', type: 'BIT', notation: 'Hexadecimal', binary: 0x5920, ascii: 'Y ', description: 'Output'},
-	M: {symbol: 'M', type: 'BIT', notation: 'Decimal', binary: 0x4D20, ascii: 'M ', description: 'Internal relay'},
-	L: {symbol: 'L', type: 'BIT', notation: 'Decimal', binary: 0x4D20, ascii: 'M ', description: 'Internal relay'},
-	S: {symbol: 'S', type: 'BIT', notation: 'Decimal', binary: 0x4D20, ascii: 'M ', description: 'Internal relay'},
-	F: {symbol: 'F', type: 'BIT', notation: 'Decimal', binary: 0x4620, ascii: 'F ', description: 'Annunciator'},
-	B: {symbol: 'B', type: 'BIT', notation: 'Hexadecimal', binary: 0x4220, ascii: 'B ', description: 'Link relay'},
-	TN: {symbol: 'TN', type: 'WORD', notation: 'Decimal', binary: 0x544E, ascii: 'TN', description: 'Timer Current value'},
-	TS: {symbol: 'TS', type: 'BIT', notation: 'Decimal', binary: 0x5453, ascii: 'TS', description: 'Timer Contact'},
-	TC: {symbol: 'TC', type: 'BIT', notation: 'Decimal', binary: 0x5443, ascii: 'TC', description: 'Timer Coil'},
-	CN: {symbol: 'CN', type: 'WORD', notation: 'Decimal', binary: 0x434E, ascii: 'CN', description: 'Counter Current value'},
-	CS: {symbol: 'CS', type: 'BIT', notation: 'Decimal', binary: 0x4353, ascii: 'CS', description: 'Counter Contact'},
-	CC: {symbol: 'CC', type: 'BIT', notation: 'Decimal', binary: 0x4343, ascii: 'CC', description: 'Counter Coil'},
-	D: {symbol: 'D', type: 'WORD', notation: 'Decimal', binary: 0x4420, ascii: 'D ', description: 'Data register'},
-	W: {symbol: 'W', type: 'WORD', notation: 'Hexadecimal', binary: 0x5720, ascii: 'W ', description: 'Link register'},
-	R: {symbol: 'R', type: 'WORD', notation: 'Decimal', binary: 0x5220, ascii: 'R ', description: 'File register'},
-	});
-	
+	X: { symbol: 'X', type: 'BIT', notation: 'Hexadecimal', binary: 0x5820, ascii: 'X ', description: 'Input' },
+	Y: { symbol: 'Y', type: 'BIT', notation: 'Hexadecimal', binary: 0x5920, ascii: 'Y ', description: 'Output' },
+	M: { symbol: 'M', type: 'BIT', notation: 'Decimal', binary: 0x4D20, ascii: 'M ', description: 'Internal relay' },
+	L: { symbol: 'L', type: 'BIT', notation: 'Decimal', binary: 0x4D20, ascii: 'M ', description: 'Internal relay' },
+	S: { symbol: 'S', type: 'BIT', notation: 'Decimal', binary: 0x4D20, ascii: 'M ', description: 'Internal relay' },
+	F: { symbol: 'F', type: 'BIT', notation: 'Decimal', binary: 0x4620, ascii: 'F ', description: 'Annunciator' },
+	B: { symbol: 'B', type: 'BIT', notation: 'Hexadecimal', binary: 0x4220, ascii: 'B ', description: 'Link relay' },
+	TN: { symbol: 'TN', type: 'WORD', notation: 'Decimal', binary: 0x544E, ascii: 'TN', description: 'Timer Current value' },
+	TS: { symbol: 'TS', type: 'BIT', notation: 'Decimal', binary: 0x5453, ascii: 'TS', description: 'Timer Contact' },
+	TC: { symbol: 'TC', type: 'BIT', notation: 'Decimal', binary: 0x5443, ascii: 'TC', description: 'Timer Coil' },
+	CN: { symbol: 'CN', type: 'WORD', notation: 'Decimal', binary: 0x434E, ascii: 'CN', description: 'Counter Current value' },
+	CS: { symbol: 'CS', type: 'BIT', notation: 'Decimal', binary: 0x4353, ascii: 'CS', description: 'Counter Contact' },
+	CC: { symbol: 'CC', type: 'BIT', notation: 'Decimal', binary: 0x4343, ascii: 'CC', description: 'Counter Coil' },
+	D: { symbol: 'D', type: 'WORD', notation: 'Decimal', binary: 0x4420, ascii: 'D ', description: 'Data register' },
+	W: { symbol: 'W', type: 'WORD', notation: 'Hexadecimal', binary: 0x5720, ascii: 'W ', description: 'Link register' },
+	R: { symbol: 'R', type: 'WORD', notation: 'Decimal', binary: 0x5220, ascii: 'R ', description: 'File register' },
+});
+
 MCProtocol.prototype.enumDeviceCodeSpecL = MCProtocol.prototype.enumDeviceCodeSpecQ;
 //MCProtocol.prototype.enumDeviceCodeSpec = MCProtocol.prototype.enumDeviceCodeSpecQ;//default to Q/L series
 
@@ -2606,10 +2794,10 @@ function PLCPacket() {
 	this.rcvd = false;						// Are we waiting on a reply?
 	this.timeoutError = undefined;			// The packet is marked with error on timeout so we don't then later switch to good data. 
 	this.timeout = undefined;				// The timeout for use with clearTimeout()
-	this.isWritePacket = false; 
-	this.isReadPacket = false;		
+	this.isWritePacket = false;
+	this.isReadPacket = false;
 	this.command = undefined;
-	this.subCommand = undefined;		 
+	this.subCommand = undefined;
 	this.subHeader = undefined;
 }
 
@@ -2660,25 +2848,25 @@ function PLCItem(owner) { // Object
 
 
 	this.maxWordLength1E = function (subHeader) {
-		/* PG 468 */		
+		/* PG 468 */
 		var plcType = this.plcType;
 		switch (subHeader) {
 			case 0x00:	// Batch read Bit units 256 points (4 bits per WD... 256/4=64 WDs)
-				if(plcType == "A" && this.deviceCode == "X") //
+				if (plcType == "A" && this.deviceCode == "X") //
 					return 32; //*1 For ACPU ... If only X is specified, the number of points processed per one communication will be one half the value
 				return 64;
 			case 0x01:	// Batch read Word units, Bit device 128 words (2048 points), Word device 256 points
-				if(this.isBitDevice()){
+				if (this.isBitDevice()) {
 					return 128; //Bit device 128 words (2048 points)
 				} else {
 					return 255;//256; //Word device 256 points but as the send data for this element is BYTE, 256 will cause overflow. We could handle this but its easier to just reduce maxsize by 1
 				}
 			case 0x02:	// Batch write Bit units 256 points (4 bits per WD... 256/4=64 WDs)
-				if(plcType == "A" && this.deviceCode == "X") //
+				if (plcType == "A" && this.deviceCode == "X") //
 					return 32; //*1 For ACPU ... If only X is specified, the number of points processed per one communication will be one half the value
 				return 64;
 			case 0x03:	// Batch write "Word units  Bit device 40 words (640 points)" / "Word device 256 points"
-				if(plcType == "A" && this.deviceCode == "X") //
+				if (plcType == "A" && this.deviceCode == "X") //
 					return 20; //*1 For ACPU ... If only X is specified, the number of points processed per one communication will be one half the value
 				return 40;
 			case 0x17:	// Extended file register Batch read 256 points
@@ -2698,14 +2886,14 @@ function PLCItem(owner) { // Object
 		A series 			1 to 64 points 			1 to 32 words (1 to 512 points)
 		QnA						1 to 480 points			1 to 480 words (1 to 7680 points)
 		Q/L/iQR				1 to 960 points 		1 to 960 words (1 to 15360 points) 		1 to 960 words (LCN: 1 to 480 points) (LTN, LSTN: 1 to 240 points)
-		*/	
-		
-		if(this.frame == "1E"){
+		*/
+
+		if (this.frame == "1E") {
 			var subHeader = this.subHeader;
 			return this.maxWordLength1E(subHeader);
 		} else {
 			try {
-				var maxWordLengthSpec;	
+				var maxWordLengthSpec;
 				var command = this.command;
 				var subCommand = this.subCommand;
 				var filteredKey = MCProtocol.prototype.enumMaxWordLength.keys.filter(function (key) {
@@ -2715,7 +2903,7 @@ function PLCItem(owner) { // Object
 				maxWordLengthSpec = MCProtocol.prototype.enumMaxWordLength[filteredKey];
 				var deviceType = this.deviceCodeSpec.type + "Device";
 
-				if(maxWordLengthSpec && maxWordLengthSpec[deviceType] && maxWordLengthSpec[deviceType][this.plcType] ){
+				if (maxWordLengthSpec && maxWordLengthSpec[deviceType] && maxWordLengthSpec[deviceType][this.plcType]) {
 					return maxWordLengthSpec[deviceType][this.plcType];
 				} else {
 					throw new Error(`Failed to find a max device count for frame '${this.frame}' command '${command}', subCommand '${subCommand}' possibly because that function is not supported yet.`);
@@ -2766,13 +2954,13 @@ function PLCItem(owner) { // Object
 	// this.writeQualityBuffer = undefined;//new Buffer(8192); //now initialised to correct size - when needed
 
 	// This is where the data can go that arrives in the packet, before calculating the value.  
-	this.byteBuffer = Buffer.alloc(8192); 
-	this.writeBuffer = Buffer.alloc(8192); 
+	this.byteBuffer = Buffer.alloc(8192);
+	this.writeBuffer = Buffer.alloc(8192);
 
 	// We use the "quality buffer" to keep track of whether or not the requests were successful.  
 	// Otherwise, it is too easy to lose track of arrays that may only be partially complete.  
-	this.qualityBuffer = Buffer.alloc(8192); 
-	this.writeQualityBuffer = Buffer.alloc(8192); 
+	this.qualityBuffer = Buffer.alloc(8192);
+	this.writeQualityBuffer = Buffer.alloc(8192);
 
 
 	// Then we have item properties
@@ -2793,13 +2981,13 @@ function PLCItem(owner) { // Object
 	this.resultReference = undefined;
 	this.itemReference = undefined;
 
-	this.isWORDDevice = function() {
+	this.isWORDDevice = function () {
 		return _isWORDDevice(this);
 	}
 	function _isWORDDevice(plcitem) {
 		return plcitem.deviceCodeSpec.type == 'WORD';
 	}
-	this.isDWORDDevice = function() {
+	this.isDWORDDevice = function () {
 		return _isDWORDDevice(this);
 	}
 	function _isDWORDDevice(plcitem) {
@@ -2812,26 +3000,26 @@ function PLCItem(owner) { // Object
 		return plcitem.deviceCodeSpec.type == 'BIT';
 	}
 
-	this.getDeviceCodeSpec = function(){
+	this.getDeviceCodeSpec = function () {
 		var theItem = this;
-		
-		if(theItem.owner && theItem.owner.enumDeviceCodeSpec){
+
+		if (theItem.owner && theItem.owner.enumDeviceCodeSpec) {
 			return theItem.owner.enumDeviceCodeSpec;
 		}
-		
-		if(theItem.enumDeviceCodeSpec){
+
+		if (theItem.enumDeviceCodeSpec) {
 			return theItem.enumDeviceCodeSpec;
 		}
 
 		if (typeof (theItem.plcType) === 'undefined') {
 			theItem.enumDeviceCodeSpec = MCProtocol.prototype.enumDeviceCodeSpecQ;//default to Q/L series
-		} else {			
+		} else {
 			theItem.enumDeviceCodeSpec = MCProtocol.prototype['enumDeviceCodeSpec' + self.plcType];
 		}
-		
+
 		if (typeof (theItem.frame) === 'undefined') {
 			//
-		} else if(theItem.frame.toUpperCase() == '1E'){
+		} else if (theItem.frame.toUpperCase() == '1E') {
 			theItem.enumDeviceCodeSpec = MCProtocol.prototype.enumDeviceCodeSpec1E;
 		}
 		return theItem.enumDeviceCodeSpec;
@@ -2884,12 +3072,12 @@ function PLCItem(owner) { // Object
 			var allowedDataTypes = MCProtocol.prototype.enumDataTypes.keys.join("|");
 			var AltAddressStyle = false; //Alt style combines DS and DT at position [1] e.g. [DS/DT] DEV DA [.BIT] [,CNT]
 			var strRegex = undefined;
-			if(AltAddressStyle)
+			if (AltAddressStyle)
 				strRegex = `(${allowedDigitSpecs}|${allowedDataTypes})?(${allowedDeviceTypes})(\\w+)(?:\\.?)?(.?)?(?:,)?(\\w+)?(?::)?({.*})?`;
 			else
 				strRegex = `(${allowedDigitSpecs})?(${allowedDeviceTypes})(${allowedDataTypes})?(\\w+)(?:\\.?)?(.?)?(?:,)?(\\w+)?(?::)?({.*})?`;
-				//(K2|K4|K8)?(SM|SD|TS|TC|TN|STS|STC|STN|CS|CC|CN|SB|SW|DX|DY|ZR|X|Y|M|L|F|V|B|D|W|Z|R)(REAL|FLOAT|DWORD|DINT|WORD|UINT|INT|STR|CHAR|BYTE|BIT)?(\w+)(?:\.?)?(.?)?(?:,)?(\w+)?(?::)?({.*})?
-			
+			//(K2|K4|K8)?(SM|SD|TS|TC|TN|STS|STC|STN|CS|CC|CN|SB|SW|DX|DY|ZR|X|Y|M|L|F|V|B|D|W|Z|R)(REAL|FLOAT|DWORD|DINT|WORD|UINT|INT|STR|CHAR|BYTE|BIT)?(\w+)(?:\.?)?(.?)?(?:,)?(\w+)?(?::)?({.*})?
+
 			outputLog(`Matching address '${addr}' to regex '${strRegex}'.`, "DEBUG");
 
 			var matches = addr.match(strRegex);
@@ -2900,7 +3088,7 @@ function PLCItem(owner) { // Object
 				throw new Error(`addr is invalid`);
 			}
 			var spec;
-			if(AltAddressStyle)
+			if (AltAddressStyle)
 				spec = {
 					dataType: matches[1] ? matches[1] : "", //e.g. K4 | DWORD | STR etc
 					deviceCode: matches[2], //e.g. Y | X | D | M 
@@ -2945,10 +3133,10 @@ function PLCItem(owner) { // Object
 					break;
 				default:
 					throw new Error(`Device notation '${theItem.deviceCodeSpec.notation}' is not supported.`);
-			} 
+			}
 
 
-			if(!isNumeric(devNo)){
+			if (!isNumeric(devNo)) {
 				throw new Error(`Device Number '${spec.deviceNo}' is not numeric.`);
 			}
 			theItem.offset = parseInt(spec.deviceNo, radix);
@@ -2981,18 +3169,18 @@ function PLCItem(owner) { // Object
 			return false;
 		}
 
-		if(theItem.digitSpec == "K2"){
+		if (theItem.digitSpec == "K2") {
 			theItem.datatype = "BYTE";
-		} else if(theItem.digitSpec == "K4"){
+		} else if (theItem.digitSpec == "K4") {
 			theItem.datatype = "INT";
-		} else if(theItem.digitSpec == "K8"){
+		} else if (theItem.digitSpec == "K8") {
 			theItem.datatype = "DINT";
 		}
 
 		if (theItem.datatype == "") {
 			if (theItem.isBitDevice()) {
 				theItem.datatype = "BIT";
-			}else{
+			} else {
 				theItem.datatype = "INT";
 			}
 		}
@@ -3023,12 +3211,6 @@ function PLCItem(owner) { // Object
 					theItem.bitOffset = postDotNumeric;
 					theItem.remainder = theItem.bitOffset % 16;//bug fix.  If D1000.1,16 is requested, we need to get 2 WDs as the addr range is D1000.1 ~ D1001.1
 				}
-				if (theItem.deviceCode === "CN" && theItem.requestOffset < 200 && (theItem.requestOffset + theItem.arrayLength > 200)) {
-					theItem.initError = "You can't have a counter array that crosses the 200-point boundary.";
-					//outputLog(theItem.initError);
-					return false;
-				}
-
 				if (theItem.deviceCode === "CN" && theItem.offset >= 200) {
 					theItem.dtypelen = 4;
 					theItem.multidtypelen = 4;
@@ -3087,8 +3269,8 @@ function PLCItem(owner) { // Object
 			theItem.initError = "byteLength is NAN!";
 		}
 
-		theItem.byteLength = theItem.wordLength*2;
-		theItem.byteLengthWrite = (theItem.bitNative) ? Math.ceil(theItem.arrayLength/2) : theItem.byteLength;
+		theItem.byteLength = theItem.wordLength * 2;
+		theItem.byteLengthWrite = (theItem.bitNative) ? Math.ceil(theItem.arrayLength / 2) : theItem.byteLength;
 		theItem.totalArrayLength = theItem.arrayLength;
 
 		// Counter check - can't think of a better way to handle this.
@@ -3132,15 +3314,15 @@ function PLCItem(owner) { // Object
 		return theItem.initialised;
 	}
 
-	this.updateSeqNum = function(seqNum){
+	this.updateSeqNum = function (seqNum) {
 		var self = this;
 		self.seqNum = seqNum;
-		if(self.frame == "4E"){
-			self.buffer.writeUInt16LE(seqNum,2); // SEQ
+		if (self.frame == "4E") {
+			self.buffer.writeUInt16LE(seqNum, 2); // SEQ
 		}
 	}
 
-	this.toBuffer =	function _MCAddrToBuffer(isAscii, frame, plcType, seqNum, network, PCStation, PLCStation, PLCModuleNo) {
+	this.toBuffer = function _MCAddrToBuffer(isAscii, frame, plcType, seqNum, network, PCStation, PLCStation, PLCModuleNo) {
 		var self = this;
 		var writeOperation = self.writeValue === undefined ? false : true;
 		var writeLength, MCCommand = Buffer.alloc(2500);
@@ -3174,16 +3356,16 @@ function PLCItem(owner) { // Object
 		10- Device Count  : 37 00        = 55     == device count (UINT16 - Little Endian (BA))
 	
 		*/
-		
-		writeLength = writeOperation ? (self.byteLengthWrite) : 0; 
+
+		writeLength = writeOperation ? (self.byteLengthWrite) : 0;
 
 		if (frame === '1E') {
-	
+
 			headerLength = 4;
-	
-			MCCommand[0] = self.subHeader ;
+
+			MCCommand[0] = self.subHeader;
 			MCCommand[1] = 0xff;
-	
+
 			if (isAscii) {
 				outputLog("We're Ascii", "DEBUG");
 				MCCommand.writeUInt16BE(monitoringTime, 2);
@@ -3191,14 +3373,14 @@ function PLCItem(owner) { // Object
 				outputLog("We're Binary", "DEBUG");
 				MCCommand.writeUInt16LE(monitoringTime, 2);
 			}
-	
+
 			// Write the data type code
 			if (isAscii) {
 				MCCommand.writeUInt16BE(self.areaMCCode, 4);
 			} else {
 				MCCommand.writeUInt16LE(self.areaMCCode, 8);
 			}
-	
+
 			// Write the data request offset
 			if (isAscii) {
 				if (writeOperation) {
@@ -3214,13 +3396,13 @@ function PLCItem(owner) { // Object
 					MCCommand.writeUInt32LE(self.requestOffset, 4);
 				}
 			}
-	
+
 			// Number of elements in request - for single-bit, 16-bit, 32-bit, this is always the number of WORDS
 			if (self.bitNative && writeOperation) {
 				// set to bit length
 				MCCommand.writeUInt8(self.arrayLength, 10);  // fails when asking for >256 items because we call toBuffer() before breaking into "parts"
 			} else if (self.bitNative && !writeOperation) {
-				MCCommand.writeUInt8(Math.ceil((self.arrayLength + self.remainder) / 16));
+				MCCommand.writeUInt8(Math.ceil((self.arrayLength + self.remainder) / 16), 10);
 			} else {
 				// doesn't work with optimized blocks where array length isn't right		MCCommand.writeUInt8(self.arrayLength*self.dataTypeByteLength()/2, 10);
 				if (writeOperation) {
@@ -3229,18 +3411,18 @@ function PLCItem(owner) { // Object
 					MCCommand.writeUInt8(self.byteLength / 2, 10);
 				}
 			}
-	
+
 			// Spec says to write 0 here
 			MCCommand.writeUInt8(0, 11);
-	
+
 			if (writeOperation) {
 				//self.prepareWriteData();
 				self.writeBuffer.copy(MCCommand, 12, 0, self.byteLengthWrite);
 				reqDataLen += writeLength;
 			}
-	
+
 			//return 1E frame
-			result.data = MCCommand.slice(0, 12 + writeLength); 
+			result.data = MCCommand.slice(0, 12 + writeLength);
 			self.buffer = result;
 			self.bufferized = true;
 			outputLog(`MCAddrToBuffer generated the below data for ${self.addr} (frame ${frame}, plcType ${plcType})...`, "TRACE");
@@ -3251,11 +3433,11 @@ function PLCItem(owner) { // Object
 			return result;
 		} else {
 			//frame 3E / 4E
-	
+
 			if (isAscii) {
 				throw new Error("ASCII Mode not implimented for 3E/4E frames");
 			}
-	
+
 			/*
 			4E/3E frame... Subheader, Access route, Request data length, Monitoring timer, Request data
 			Subheader The value to be set according to type of message is defined.
@@ -3284,10 +3466,12 @@ function PLCItem(owner) { // Object
 		
 				3E Q/L example
 				0                             1                             2                             3
+				0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9  0
 				50 00 00 ff ff 03 00 0a 00 10 00 01 04 00 00 d2 04 00 A8 37 00
 		
 				4E Q/L example
 				0                             1                             2                             3
+				0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9  0
 				54 00 02 00 00 00 00 ff ff 03 00 0a 00 10 00 01 04 00 00 d2 04 00 A8 37 00
 				
 				Subheader 4E 0x0054 + serial number + 0x0000 (6b) 1234H (5400 = 4E frame, 0200=2h, 0000 fixed) 
@@ -3336,8 +3520,8 @@ function PLCItem(owner) { // Object
 					(UINT16 LE) - Device Count  :  37 00        = 55  
 		
 				*/
-	
-	
+
+
 			//Subheader: serial number (4E) or fixed (3E) 
 			//example 1234H (5400 = 4E frame, 3412=1234h, 0000 fixed) 
 			// 0  1  2  3  4  5
@@ -3353,7 +3537,7 @@ function PLCItem(owner) { // Object
 				MCCommand.addByte(0x00); // 3E frame
 				pos = 2;
 			}
-	
+
 			//access route - connect to local example net0, pcno ff, 
 			// 00 ff ff 03 00
 			/*
@@ -3361,6 +3545,7 @@ function PLCItem(owner) { // Object
 			* (Byte) PC No. (byte) Specify the network module station No. of an access target
 			* (UINT16 LE) Request destination module I/O No 
 				0000H to 01FFH: Values obtained by dividing the start input/output number by 16
+				0x03FF = CPU
 			* (Byte) Request destination module station No. 
 			*/
 			let networkNo = network ? network : (this.options.N || 0);
@@ -3371,25 +3556,25 @@ function PLCItem(owner) { // Object
 			MCCommand.addUint16LE(PLCModuleNo ? PLCModuleNo : 0x3FF); //03ff // Request destination module I/O No //for multidrop/routing
 			MCCommand.addByte(PLCStation ? PLCStation : 0); //0x0 // Request destination module station No //for multidrop/routing
 			pos += 5;
-	
+
 			//Request data length  (UINT16 LE)
 			var reqDataLenPos = MCCommand.pointer;
 			var reqDataLen = 0;
 			//Update Data Length after its understood below - for now, set length as zero
 			MCCommand.addUint16LE(0);
 			pos += 2;
-	
+
 			//Monitoring timer  (0= wait forever, 01H=250ms ~ 28H=40x250=10s )
 			MCCommand.addUint16LE(monitoringTime);
 			pos += 2;
 			reqDataLen += 2;
-	
+
 			// //Request data...
 			// * Command
 			MCCommand.addUint16LE(self.command);
 			MCCommand.addUint16LE(self.subCommand);
-	
-	
+
+
 			pos += 4;
 			reqDataLen += 4;
 			// * Device
@@ -3413,14 +3598,14 @@ function PLCItem(owner) { // Object
 			pos += 3;
 			reqDataLen += 3;
 
-	
+
 			if (plcType == 'R') {
 				MCCommand.addByte((offset >> 24) & 0xff);
 				pos += 1;
 				reqDataLen += 1;
-				}
+			}
 
-				
+
 			// Device Code
 			if (plcType == 'R') {
 				MCCommand.addUint16LE(self.areaMCCode);
@@ -3431,7 +3616,7 @@ function PLCItem(owner) { // Object
 				reqDataLen += 1;
 				pos += 1;
 			}
-	
+
 			//NOTES:
 			// 1E Number of elements in request - for single-bit, 16-bit, 32-bit, this is always the number of WORDS
 			// 3E,4E Number of elements in request - 
@@ -3451,23 +3636,23 @@ function PLCItem(owner) { // Object
 			}
 			pos += 2;
 			reqDataLen += 2;
-	
-	
+
+
 			//add write data
 			if (writeOperation) {
 				//self.prepareWriteData();
 				self.writeBuffer.copy(MCCommand, pos, 0, self.byteLengthWrite);
 				reqDataLen += writeLength;
 			}
-	
+
 			//update the Request Data Length
 			MCCommand.writeInt16LE(reqDataLen, reqDataLenPos);
-	
+
 			//return 3E/4E frame 
-			result.data = MCCommand.slice(0, pos + writeLength);   
+			result.data = MCCommand.slice(0, pos + writeLength);
 			outputLog(`MCAddrToBuffer generated the below data for ${self.addr} (frame ${frame}, plcType ${plcType})...`, "TRACE");
 			outputLog('        0                             1                             2                 ', "TRACE");
-			outputLog('        0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  ', "TRACE");
+			outputLog('        0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  ', "TRACE");
 			outputLog(result.data, "TRACE");
 			self.buffer = result;
 			self.bufferized = true;
@@ -3484,11 +3669,11 @@ function PLCItem(owner) { // Object
 		thePointer = 0; // After length and header
 
 		try {
-			
-			 //if(!theItem.writeBuffer || !theItem.writeQualityBuffer || !(theItem.writeBuffer.length == theItem.byteLengthWrite)){
-			 	theItem.writeBuffer.fill(0) //= new Buffer(theItem.byteLengthWrite+1);
-			 	theItem.writeQualityBuffer.fill(0) //= new Buffer(theItem.byteLengthWrite+1);
-			 //}
+
+			//if(!theItem.writeBuffer || !theItem.writeQualityBuffer || !(theItem.writeBuffer.length == theItem.byteLengthWrite)){
+			theItem.writeBuffer.fill(0) //= new Buffer(theItem.byteLengthWrite+1);
+			theItem.writeQualityBuffer.fill(0) //= new Buffer(theItem.byteLengthWrite+1);
+			//}
 			// if(!theItem.writeBuffer){
 			// 	theItem.writeBuffer = new Buffer(theItem.byteLengthWrite);
 			// 	theItem.writeQualityBuffer = new Buffer(theItem.byteLengthWrite);
@@ -3595,7 +3780,7 @@ function PLCItem(owner) { // Object
 			} else {
 				// Single value. 
 				switch (theItem.datatype) {
-	
+
 					case "REAL":
 						if (isAscii) {
 							theItem.writeBuffer.setFloatBESwap(theItem.writeValue, thePointer);
@@ -3667,7 +3852,7 @@ function PLCItem(owner) { // Object
 				}
 				thePointer += theItem.dtypelen;
 			}
-	
+
 		} catch (error) {
 			theItem.lastError = `Exception preparing the write buffer for item '${theItem.useraddr}': ${error}`;
 			outputLog(theItem.lastError, "ERROR");
@@ -3681,7 +3866,7 @@ function PLCItem(owner) { // Object
 	this.clone = function () {
 		var newObj = new PLCItem(this.owner);
 		for (var i in this) {
-			if (i == 'clone') 
+			if (i == 'clone')
 				continue;
 			// if (i == 'qualityBuffer') 
 			// 	continue;
@@ -3770,10 +3955,10 @@ function _enum(list) {
 			let alt = undefined;
 			if (t == "string" || t == "number")
 				alt = v;
-			else if (t == "object"){
-				if(v.hasOwnProperty('value'))
+			else if (t == "object") {
+				if (v.hasOwnProperty('value'))
 					alt = v.value;
-				if(!v.name)
+				if (!v.name)
 					v.name = key;
 			}
 
