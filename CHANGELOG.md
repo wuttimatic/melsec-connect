@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.9] - 2025-04-09
+
+### Added
+
+- Added `readString` function to read string values from PLC memory
+- Added timing measurements to all read and write operations
+  - Each operation now includes a `timeTaken` property (in milliseconds)
+  - Batch operations include total time and individual operation times
+
+### Changed
+
+- Modified `write` method to return a detailed result object instead of a boolean
+  - New return format includes success status, timing information, and individual operation results
+
 ## [1.0.2] - 2024-12-09
 
 ### Fixed

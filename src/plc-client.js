@@ -47,23 +47,33 @@ class PLCClient {
                 if (tag.count && tag.count > 1) {
                     // For array reading, we'll read each item individually and combine
                     const values = [];
+                    let totalTimeTaken = 0;
                     for (let i = 0; i < tag.count; i++) {
                         const addr = `${tag.name.replace(/\d+$/, '')}${parseInt(tag.name.match(/\d+$/)[0]) + i}`;
+                        const timeUsed = new Date().getTime();
                         const result = await this._readTag({ name: addr }, timeout);
                         if (result.error) {
                             throw new Error(`Error reading array element ${i}: ${result.error}`);
                         }
                         values.push(result.value);
+                        totalTimeTaken += new Date().getTime() - timeUsed;
                     }
                     results[tag.name] = {
                         name: tag.name,
                         values,
                         count: tag.count,
                         quality: 'Good',
-                        timeStamp: new Date().toISOString()
+                        timeStamp: new Date().toISOString(),
+                        timeTaken: totalTimeTaken
                     };
                 } else {
-                    results[tag.name] = await this._readTag(tag, timeout);
+                    const timeUsed = new Date().getTime();
+                    const result = await this._readTag(tag, timeout);
+                    const timeTaken = new Date().getTime() - timeUsed;
+                    results[tag.name] = {
+                        ...result,
+                        timeTaken
+                    };
                 }
                 // Add small delay between reads to prevent overwhelming the PLC
                 await new Promise(resolve => setTimeout(resolve, 50));
@@ -112,6 +122,8 @@ class PLCClient {
 
     async write(tags, options = {}) {
         const timeout = options.timeout || this.config.timeout;
+        const results = {};
+        let totalTimeTaken = 0;
         
         try {
             // Always establish a fresh connection for writing
@@ -121,7 +133,16 @@ class PLCClient {
             await this.connect();
 
             for (const tag of tags) {
-                await this._writeTag(tag, timeout);
+                const timeUsed = new Date().getTime();
+                const result = await this._writeTag(tag, timeout);
+                const timeTaken = new Date().getTime() - timeUsed;
+                totalTimeTaken += timeTaken;
+                
+                results[tag.name] = {
+                    ...result,
+                    timeTaken
+                };
+                
                 // Add small delay between writes to prevent overwhelming the PLC
                 await new Promise(resolve => setTimeout(resolve, 100));
             }
@@ -129,7 +150,11 @@ class PLCClient {
             // Always disconnect after writing
             await this.disconnect();
             
-            return true;
+            return {
+                success: true,
+                timeTaken: totalTimeTaken,
+                results: results
+            };
         } catch (error) {
             console.error('[PLCClient] Write error:', error);
             // Ensure connection is cleaned up even on error
@@ -169,16 +194,20 @@ class PLCClient {
 
             let resultString = '';
             const readResults = [];
+            let totalTimeTaken = 0;
 
             // Read specified number of words
             for (let i = 0; i < wordCount; i++) {
                 const addr = `${baseAddr}${startNum + i}`;
+                const timeUsed = new Date().getTime();
                 const result = await this._readTag({ name: addr }, timeout);
+                const timeTaken = new Date().getTime() - timeUsed;
+                totalTimeTaken += timeTaken;
 
                 if (result.error) {
                     throw new Error(`Error reading string word ${i} from ${addr}: ${result.error}`);
                 }
-                readResults.push(result);
+                readResults.push({...result, timeTaken});
 
                 // Extract characters from the word value
                 // High byte = first char, low byte = second char
@@ -203,6 +232,7 @@ class PLCClient {
                 wordCount: readResults.length,
                 quality: 'Good',
                 timeStamp: new Date().toISOString(),
+                timeTaken: totalTimeTaken,
                 results: readResults
             };
 
@@ -241,6 +271,7 @@ class PLCClient {
             const writeResults = [];
 
             // Process two characters at a time
+            let totalTimeTaken = 0;
             for (let i = 0; i < wordCount; i++) {
                 const char1 = paddedText[i * 2] || '\0';
                 const char2 = paddedText[i * 2 + 1] || '\0';
@@ -249,15 +280,18 @@ class PLCClient {
                 const wordValue = (char1.charCodeAt(0) << 8) | char2.charCodeAt(0);
                 
                 const addr = `${baseAddr}${startNum + i}`;
+                const timeUsed = new Date().getTime();
                 const result = await this._writeTag({
                     name: addr,
                     value: wordValue
                 }, timeout);
+                const timeTaken = new Date().getTime() - timeUsed;
+                totalTimeTaken += timeTaken;
 
                 if (result.error) {
                     throw new Error(`Error writing string word ${i} to ${addr}: ${result.error}`);
                 }
-                writeResults.push(result);
+                writeResults.push({...result, timeTaken});
 
                 // Add small delay between writes
                 await new Promise(resolve => setTimeout(resolve, 50));
@@ -269,6 +303,7 @@ class PLCClient {
                 wordCount,
                 quality: 'Good',
                 timeStamp: new Date().toISOString(),
+                timeTaken: totalTimeTaken,
                 results: writeResults
             };
 
