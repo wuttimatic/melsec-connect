@@ -144,6 +144,74 @@ class PLCClient {
         }
     }
 
+    async readString(address, wordCount, options = {}) {
+        if (!address || typeof address !== 'string') {
+            throw new Error('Address must be a string');
+        }
+        if (!wordCount || typeof wordCount !== 'number' || wordCount <= 0) {
+            throw new Error('WordCount must be a positive number');
+        }
+
+        const timeout = options.timeout || this.config.timeout;
+        
+        try {
+            if (!this.connection) {
+                await this.connect();
+            }
+
+            // Extract base address and number
+            const baseAddrMatch = address.match(/^([A-Za-z]+)(\d+)$/);
+            if (!baseAddrMatch) {
+                throw new Error(`Invalid address format: ${address}`);
+            }
+            const baseAddr = baseAddrMatch[1];
+            const startNum = parseInt(baseAddrMatch[2]);
+
+            let resultString = '';
+            const readResults = [];
+
+            // Read specified number of words
+            for (let i = 0; i < wordCount; i++) {
+                const addr = `${baseAddr}${startNum + i}`;
+                const result = await this._readTag({ name: addr }, timeout);
+
+                if (result.error) {
+                    throw new Error(`Error reading string word ${i} from ${addr}: ${result.error}`);
+                }
+                readResults.push(result);
+
+                // Extract characters from the word value
+                // High byte = first char, low byte = second char
+                const wordValue = result.value;
+                const char1 = String.fromCharCode((wordValue >> 8) & 0xFF);
+                const char2 = String.fromCharCode(wordValue & 0xFF);
+                
+                // Add characters to result string, stopping at null terminator
+                if (char1 !== '\0') resultString += char1;
+                else break;
+                
+                if (char2 !== '\0') resultString += char2;
+                else break;
+
+                // Add small delay between reads
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+
+            return {
+                address,
+                text: resultString,
+                wordCount: readResults.length,
+                quality: 'Good',
+                timeStamp: new Date().toISOString(),
+                results: readResults
+            };
+
+        } catch (error) {
+            console.error('[PLCClient] Read string error:', error);
+            throw error;
+        }
+    }
+
     async writeString(address, text, options = {}) {
         if (!address || typeof address !== 'string') {
             throw new Error('Address must be a string');
