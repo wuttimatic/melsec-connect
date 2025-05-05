@@ -1,6 +1,6 @@
 {
   "name": "melsec-connect",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "A modern Node.js library for communicating with Mitsubishi MELSEC PLCs using MC Protocol",
   "main": "src/index.js",
   "scripts": {
