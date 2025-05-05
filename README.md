@@ -107,6 +107,35 @@ await plc.writeString("D100", "Hello PLC!");
 
 Each character takes up one byte, and values are packed into words (2 bytes per word).
 
+### Unicode String Operations
+
+Read and write Unicode (UTF-16LE) strings to consecutive PLC addresses. Use the `writeUnicodeString` and `readUnicodeString` methods for full Unicode support:
+
+#### Writing Unicode Strings
+
+```javascript
+// Write a Unicode string (e.g., Japanese, Thai, emoji) to consecutive addresses starting from D100
+await plc.writeUnicodeString("D100", "こんにちはPLC 🌟");
+```
+- Each character is encoded as UTF-16LE (2 bytes per character).
+- The string will be split into words (2 bytes per word) and written to consecutive addresses.
+
+#### Reading Unicode Strings
+
+```javascript
+// Read a Unicode string from consecutive addresses starting from D100 (reading 10 words)
+const result = await plc.readUnicodeString("D100", 10);
+console.log(result.text); // Decoded Unicode string
+```
+- Specify the starting address and the number of words to read.
+- The result includes the decoded string as well as raw word data.
+
+#### Notes
+- Use `writeUnicodeString` and `readUnicodeString` for any text that includes non-ASCII or non-Latin characters (e.g., CJK, emoji, special symbols).
+- For plain ASCII/Latin text, `writeString` and `readString` are sufficient.
+- All Unicode operations use UTF-16LE encoding to match MELSEC PLC conventions.
+- See the API Reference for more details on method options and return values.
+
 ### Configuration Options
 
 ```javascript
